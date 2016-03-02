@@ -1,6 +1,10 @@
 %{
 open Lexing
 open Ast
+open Symbol
+
+let make_sym str = Symbol.symbol_of_string str
+
 %}
 
 %token <int> INT
@@ -54,12 +58,12 @@ exp:
                     { Negation_exp e }
 
   | i = ID LPAREN es = exp_list RPAREN                (* function call  *)
-                    { Call_exp (i, es) }
+                    { Call_exp (make_sym i, es) }
 
   | i = ID LBRACE fc = field_create_list RBRACE 
-                    { Rec_create (i, fc) }
+                    { Rec_create (make_sym i, fc) }
   | i = ID LBRACKET e1 = exp RBRACKET OF e2 = exp 
-                    { Arr_create (i, e1, e2) } %prec LBRACKET
+                    { Arr_create (make_sym i, e1, e2) } %prec LBRACKET
   | lv = lvalue COLONEQ e = exp
                     { Assignment (lv, e) }
   | IF test = exp THEN then_exp = exp ELSE else_exp = exp
@@ -69,7 +73,7 @@ exp:
   | WHILE e1 = exp DO e2 = exp 
                     { Whileexp (e1, e2) }
   | FOR i = ID COLONEQ e0 = exp TO e1 = exp DO e2 = exp 
-                    { Forexp (i, e0, e1, e2) }
+                    { Forexp (make_sym i, e0, e1, e2) }
   | LET decls = decl_list IN es = exp_seq END
                     { Letexp (decls, es)}
   | ae = arith_exp  { ArithExp ae }
@@ -77,11 +81,11 @@ exp:
   | be = bool_exp   { BoolExp be }
 
 lvalue:
-  | i = ID   { Id i } %prec LBRACKET
+  | i = ID   { Id (make_sym i) } %prec LBRACKET
   | lv = lvalue DOT i = ID
-              { Field_exp (lv, i) }
+              { Field_exp (lv, make_sym i) }
   | i = ID LBRACKET e = exp RBRACKET
-              { Subscript (Id i, e) }
+              { Subscript (Id (make_sym i), e) }
   | lv = lvalue LBRACKET e = exp RBRACKET
               { Subscript (lv, e) }
 
@@ -96,7 +100,7 @@ field_create_list:
   | fc = separated_list(COMMA, field_create) { fc }
 
 field_create:
-  | i = ID EQ e = exp  { (i, e) }
+  | i = ID EQ e = exp  { (make_sym i, e) }
 
 
 
@@ -104,18 +108,18 @@ decl_list:
   | dl = nonempty_list(decl) { dl }
 
 decl:
-  | TYPE i = ID EQ t = ty         { Type_decl  (i, t) }
-  | VAR i = ID COLONEQ e = exp    { Var_decl (i, None, e) }
+  | TYPE i = ID EQ t = ty         { Type_decl  (make_sym i, t) }
+  | VAR i = ID COLONEQ e = exp    { Var_decl (make_sym i, None, e) }
   | VAR i = ID COLON tid = ID COLONEQ e = exp
-                                  { Var_decl (i, Some tid, e) }
+                                  { Var_decl (make_sym i, Some (make_sym tid), e) }
   | FUNCTION i = ID LPAREN fd = field_decl_list RPAREN EQ e = exp
-                                  { Func_decl (i, fd, None, e) }
+                                  { Func_decl (make_sym i, fd, None, e) }
   | FUNCTION i = ID LPAREN fd = field_decl_list RPAREN COLON tid = ID EQ e = exp
-                                  { Func_decl (i, fd, Some tid, e)}
+                                  { Func_decl (make_sym i, fd, Some (make_sym tid), e)}
 
 ty:
-  | i = ID                        { Type_id i }
-  | ARRAY OF tid = ID             { Array_ty tid }
+  | i = ID                        { Type_id (make_sym i)}
+  | ARRAY OF tid = ID             { Array_ty (make_sym tid) }
   | LBRACE fd = field_decl_list RBRACE 
                                   { Rec_ty fd }
 
@@ -123,7 +127,7 @@ field_decl_list:
   | fl = separated_list(COMMA, field_decl)   { fl }
 
 field_decl:
-  | i = ID COLON tid = ID  { (i, tid) }
+  | i = ID COLON tid = ID  { (make_sym i, make_sym tid) }
 
 
 arith_exp:

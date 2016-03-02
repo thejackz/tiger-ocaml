@@ -1,3 +1,5 @@
+open Symbol
+
 type pos = {
   start_pos : Lexing.position;
   end_pos   : Lexing.position;
@@ -35,8 +37,8 @@ and decl =
   | Func_decl of id * (field_decl list) * return_ty option * exp
   | Var_decl  of id * (type_id option)  * exp
   
-and id              = string 
-and type_id         = string 
+and id              = Symbol.symbol
+and type_id         = id 
 and return_ty       = type_id 
 and array_type      = type_id
 and field_decl      = id * type_id
