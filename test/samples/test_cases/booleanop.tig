@@ -1,0 +1,17 @@
+let
+    var true := 1
+    var false := 0
+
+    function assert (result : int, expected : int) =
+        if result = expected then print("passed\n")
+        else print("failed\n")
+in
+    assert((1 < 2) & (1 < 3), true);
+    assert((1 < 2) & (1 > 3), false);
+    assert((1 > 2) & (1 < 3), false);
+    assert((1 > 2) & (1 > 3), false);
+    assert((1 < 2) | (1 < 3), true);
+    assert((1 < 2) | (1 > 3), true);
+    assert((1 > 2) | (1 < 3), true);
+    assert((1 > 2) | (1 > 3), false)
+end

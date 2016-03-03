@@ -1,0 +1,18 @@
+let
+    var N : int := 30
+    var a : int := 1
+    var b : int := 0
+in
+    for i := 1 to N do (
+        let var c := a + b in
+            b := a;
+            a := c
+        end;
+        print("fibonacci ");
+        printint(i);
+        print(": ");
+        printint(a);
+        print("\n")
+    );
+    a
+end

@@ -5,7 +5,7 @@ open Core.Std
 
 let cur_dir = Sys.getcwd ()
 
-let file_path = cur_dir ^ "/test/samples/good"
+let file_path = cur_dir ^ "/test/samples/test_cases"
 
 
 let get_full_paths base_path file_lst = 

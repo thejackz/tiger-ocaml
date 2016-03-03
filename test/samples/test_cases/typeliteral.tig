@@ -1,0 +1,35 @@
+let
+   type tree = { data : string, left : tree, right : tree }
+   var t := tree { 
+         data = "what", 
+         left = tree { 
+              data = "the",
+              left = tree {
+                   data = "hell",
+                   left = nil,
+                   right = tree {
+                         data = "mess",
+                         left = nil,
+                         right = nil
+                   }
+              },
+              right = tree {
+                    data = "freak",
+                    left = nil, 
+                    right = nil
+              }
+        },
+        right = nil
+    }
+
+    function show_tree (t : tree) = 
+        if t <> nil then
+            (print("{ data: "); print(t.data);
+             print(", L: "); show_tree (t.left);
+             print(", R: "); show_tree (t.right);
+             print("}"))
+        else 
+            print("nil")
+in
+	show_tree(t); print("\n")
+end

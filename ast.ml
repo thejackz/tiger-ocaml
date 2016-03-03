@@ -38,7 +38,7 @@ and decl =
   | Var_decl  of id * (type_id option)  * exp
   
 and id              = Symbol.symbol
-and type_id         = id 
+and type_id         = Symbol.symbol
 and return_ty       = type_id 
 and array_type      = type_id
 and field_decl      = id * type_id

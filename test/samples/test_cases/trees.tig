@@ -1,0 +1,25 @@
+let 
+    var N := 6
+    type tree = { key : int, left : tree, right : tree }
+    type tArray = array of tree
+
+    function show_tree (t : tree) = 
+        if t <> nil then
+            (print("{ key: "); printint(t.key);
+             print(", L: "); show_tree (t.left);
+             print(", R: "); show_tree (t.right);
+             print("}"))
+        else 
+            print("nil")
+
+    var ta : tArray := tArray [N] of tree { key = 0, left = nil, right = nil }
+in
+    ta[0] := tree { key = 0, left = nil, right = nil };
+    ta[1] := tree { key = 1, left = ta[0], right = nil };
+
+    for k := 2 to N - 1 do
+       ta[k] := tree { key = k, left = ta[k - 1], right = ta[k - 2] };
+
+    for k := 0 to N - 1 do
+       (show_tree(ta[k]); print("\n"))
+end

@@ -1,0 +1,14 @@
+let
+    var N := 10
+    var sum := 0
+    function fibo (n : int) : int = 
+        if n = 0 | n = 1 then 1
+        else fibo (n - 1) + fibo (n - 2)
+in
+    for k := 0 to N do
+        let var v := fibo(k) in
+            printint(v); print("\n");
+            sum := sum + v
+        end;
+    printint(sum); print("\n")
+end

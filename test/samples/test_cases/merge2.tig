@@ -1,0 +1,23 @@
+let 
+
+ type list = {first: int, rest: list}
+
+ function merge(a: list, b: list) : list =
+   if a=nil then b
+   else if b=nil then a
+   else if a.first < b.first 
+      then list{first=a.first,rest=merge(a.rest,b)}
+      else list{first=b.first,rest=merge(a,b.rest)}
+
+ function printlist(l: list) =
+   if l=nil then print("\n")
+   else (printint(l.first); print(" "); printlist(l.rest))
+
+   var list1 := list {first=2, rest=list{first=4, rest=list{first=5, rest=list{first=7, rest=nil}}}}
+   var list2 := list {first=1, rest=list{first=3, rest=list{first=6, rest=nil}}}
+
+/* BODY OF MAIN PROGRAM */
+in 
+ printlist(merge(list1,list2))
+end
+

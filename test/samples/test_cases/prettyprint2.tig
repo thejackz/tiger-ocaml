@@ -1,0 +1,47 @@
+let
+type tree = { key: string, left: tree, right: tree }
+
+function prettyprint(tree: tree) : string = 
+    let
+        var output := ""
+        
+        function write (s : string) = 
+            output := concat(output, s)
+
+        function show(n : int, t : tree) = 
+            let function indent(s : string) = 
+                (for i := 1 to n
+                    do write(" ");
+                 output := concat(output, s); write("\n"))
+            in if t = nil then indent(".")
+               else (indent(t.key);
+                     show(n + 1, t.left);
+                     show(n + 1, t.right))
+            end
+
+    in show(0, tree); output
+    end
+
+in
+print(prettyprint(
+    tree { 
+        key = "foo", 
+        left = tree { 
+            key = "bar", 
+            left = tree {
+                key = "fuck",
+                left = nil,
+                right = nil },
+            right = tree {
+                key = "shit",
+                left = nil,
+                right = nil }
+        },
+        right = tree { 
+            key = "baz", 
+            left = nil, 
+            right = nil
+        }
+    }
+))
+end

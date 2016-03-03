@@ -1,0 +1,6 @@
+/* bonus test - error: duplicated field */
+let
+    type t = { a : int, b : string, a : int }
+in
+    ()
+end

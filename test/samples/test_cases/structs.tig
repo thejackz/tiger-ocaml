@@ -1,0 +1,35 @@
+let
+    type tree = { key : int, left : tree, right : tree }
+                    
+    function insert (t : tree, k : int) =
+        if k < t.key then (
+            if t.left <> nil then insert(t.left, k)
+            else t.left := new_tree (k))
+        else
+            (if t.right <> nil then insert(t.right, k)
+             else t.right := new_tree (k))
+
+    function new_tree (k : int) : tree = 
+        tree { key = k, left = nil, right = nil }
+
+    function show_tree (t : tree) = 
+        if t <> nil then
+            (print("{ key: "); printint(t.key);
+             print(", L: "); show_tree (t.left);
+             print(", R: "); show_tree (t.right);
+             print("}"))
+        else 
+            print("nil")
+
+     var tt : tree := new_tree (5)
+ in
+     insert (tt, 3);
+     insert (tt, 7);
+     insert (tt, 6);
+     insert (tt, 1);
+     insert (tt, 2);
+     insert (tt, 4);
+     show_tree(tt);
+     print("\n")
+end
+

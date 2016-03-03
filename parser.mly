@@ -4,6 +4,7 @@ open Ast
 open Symbol
 
 let make_sym str = Symbol.symbol_of_string str
+(*let make_sym str =  str*)
 
 %}
 

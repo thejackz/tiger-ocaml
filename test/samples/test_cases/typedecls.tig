@@ -1,0 +1,80 @@
+let
+/*
+   var a : int := 1
+   var b : int := 2
+   type intArray = array of int
+   type tree = { key: int, children: dummyty }
+   type dummyty = treelist
+   type treelist = { head: tree, tail: treelist }
+   var c := a
+   type ty2 = intArray
+   type t0 = t1
+   type t1 = t2
+   type t2 = intArray
+ */
+
+   var a : int := 1
+   var b : string := "what"
+
+   type list = { hd : int, tl : list }
+   type listArray = array of list
+
+   var c := list { hd = 10, tl = list { hd = 20, tl = nil} }
+   var d := listArray[2] of list { hd = 10, tl = nil }
+
+   type tree = { data : int, left : tree, right : tree }
+   var t := tree { 
+         data = 3, 
+         left = tree { 
+              data = 2,
+              left = tree {
+                   data = 4,
+                   left = nil,
+                   right = tree {
+                         data = 1,
+                         left = nil,
+                         right = nil
+                   }
+              },
+              right = tree {
+                    data = 3,
+                    left = nil, 
+                    right = nil
+              }
+        },
+        right = nil
+    }
+
+    var e := d[0]
+    var f := d[1].tl.hd
+    var g := t.left.right.left
+    var h := g.right.left.data
+    var i := d[g.right.left.data].tl.hd
+    var j := (i := 100)
+    
+    function func0(a: int, b: listArray): int = 
+        (func0(100, listArray[2] of nil) + 10;
+         func1(100, 
+               tree { data = 13, left = g, right = nil }, 
+               list {hd = 10, tl = list {hd = 20, tl = nil}});
+         a + b[0].hd)
+    
+    function func1(a: int, b: tree, c: list): tree = 
+        (func0(100, listArray[3] of list { hd = 10, tl = nil });
+         tree { data = a + c.hd, 
+               left = b, 
+               right = nil })
+    
+    function func2(a: string, b: listArray) = 
+        (func1(10, tree { data = 7, left = nil, right = g }, 
+               list { hd = 30, tl = nil } );
+        ())
+
+    function testexpr (a : string, b : int, c : list, d : listArray) = 
+        for i := 0 to 10 do (
+            if b + 1 then (a; ());
+            "what the fuck";
+            ())
+in
+   1 + 1
+end
