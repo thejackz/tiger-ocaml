@@ -1,33 +1,16 @@
-#directory "_build";;
-#load "lexer.cmo";;
-#load "parser.cmo";;
-#load "main.cmo";;
+(*#directory "_build";;*)
+(*#load "lexer.cmo";;*)
+(*#load "parser.cmo";;*)
+(*#load "main.cmo";;*)
 
-(*let token_to_str = function*)
-  (*| EOF -> "eof"*)
-  (*| LPAREN   -> "("  | RPAREN    -> ")"*)
-  (*| LBRACE   -> "{"  | RBRACE    -> "}"*)
-  (*| LBRACKET -> "["  | RBRACKET  -> "]"*)
-  (*| PLUS     -> "+"  | MINUS     -> "-"*)
-  (*| TIMES    -> "*"  | DIVIDE    -> "/"*)
-  (*| EQ       -> "="  | NEQ       -> "<>"*)
-  (*| LESS     -> "<"  | LESSEQ    -> "<="*)
-  (*| GREATER  -> ">"  | GREATEREQ -> ">="*)
-  (*| AMPERSAND -> "&" | PIPE      -> "|"*)
-  (*| COLON     -> ":" | SEMICOL   -> ";"*)
-  (*| COLONEQ   -> ":="| DOT       -> "." *)
-  (*| COMMA     -> "," | ARRAY     -> "array"*)
-  (*| BREAK     -> "break"  | DO  -> "do"*)
-  (*| ELSE      -> "else" | END -> "end"*)
-  (*| FOR       -> "for" | FUNCTION -> "function"*)
-  (*| IF        -> "if" | IN -> "in"*)
-  (*| LET       -> "let" | NIL -> "nil"*)
-  (*| OF        -> "of" | THEN -> "then"*)
-  (*| TO        -> "to" | TYPE -> "type"*)
-  (*| VAR       -> "var" | WHILE -> "while"*)
-  (*| INT i     -> "Int " ^ (string_of_int i )*)
-  (*| ID id     -> "ID " ^ id*)
-  (*| STRING str -> "STRING " ^ str*)
+open Lexing
+open Core.Std
+open Ast
+open Datatypes
+open Env
+open Symbol
+open Translate
+
 
 let lexer s = 
   let lexbuf = Lexing.from_string s in
