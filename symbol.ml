@@ -6,6 +6,7 @@ let sym_int = ref (-1)
 let next_sym_int () = 
   sym_int := !sym_int + 1; !sym_int
 
+
 let symbol_to_int_table = Hashtbl.create ~hashable:String.hashable ()
 let table = symbol_to_int_table
 
@@ -19,6 +20,12 @@ let symbol_of_string (str:string) =
 
 let name (s, _) = s
 let integer (_, i) = i
+
+let dummy_init = ref (-1)
+let make_dummy_sym () = 
+  dummy_init := !dummy_init + 1;
+  let str = "dummy" ^ (string_of_int !dummy_init) in
+  symbol_of_string str
 
 module Symbol_map = Map.Make(
   struct

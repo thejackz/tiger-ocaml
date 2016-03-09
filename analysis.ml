@@ -254,21 +254,28 @@ and trans_letexp venv tenv decls exps =
   let (new_venv, new_tenv) = trans_decls venv tenv decls in
   trans_exp_seq new_venv new_tenv exps
 
-and process_header tenv decls = 
+and process_header venv tenv decls = 
   List.fold_left decls
-  ~init:tenv
-  ~f:(fun tenv decl ->
+  ~init:(venv, tenv)
+  ~f:(fun (venv, tenv) decl ->
     match decl with
-    | Type_decl (id, ty) -> S.add tenv id (D.NAME (id, ref None))
+    | Type_decl (id, ty) -> (venv, S.add tenv id (D.NAME (id, ref None)))
     | Func_decl (fname, params, return, body) ->
-                            S.add tenv fname (D.NAME (fname, ref None))
+        (let param_refs = List.map params ~f:(fun (id, _) -> D.NAME (id, ref None)) in
+        let return_ref = match return with
+        | Some t -> D.NAME (t, ref None) 
+        | None -> 
+            let dummy_return = make_dummy_sym () in
+            D.NAME (dummy_return, ref None)
+        in
+        (S.add venv fname (E.FUNC_TYPE (param_refs, return_ref)), tenv))
     | Var_decl (vname, vtype, rhs) ->
-                            S.add tenv vname (D.NAME (vname, ref None)))
+                            (S.add venv vname (E.VAR_TYPE (D.NAME (vname, ref None))), tenv))
 
 and trans_decls venv tenv decls = 
-  let tenv' = process_header tenv decls in
+  let (venv', tenv') = process_header venv tenv decls in
   List.fold_left decls
-    ~init:(venv, tenv')
+    ~init:(venv', tenv')
     ~f:(fun (venv, tenv) delc -> trans_decl venv tenv delc)
 
 and trans_decl venv tenv decl =
@@ -319,15 +326,55 @@ and trans_funcdecl venv tenv fname params return body =
   let tenv_params = List.fold_left param_idtys ~init:tenv
     ~f:(fun acc (id, t) -> S.add acc id t)
   in
-  match return with
-  | None -> 
-      let body_type = check_body venv tenv_params body in
-      let params = List.map param_idtys ~f:(fun (_, t) -> t ) in
-      let new_venv = S.add venv fname 
-  | Some ty -> 
-      match S.lookup tenv ty with
-      | Some t -> process_res venv tenv fname params body
-      | None   -> failwith (Printf.sprintf "%s is not defined" (S.name ty))
+  let {exp = _; ty = body_type} = trans_exp venv tenv_params body in
+  let params = List.map param_idtys ~f:(fun (_, t) -> t ) in
+  match S.lookup venv fname with
+  | None -> failwith "function does not exist, should never happend"
+  | Some (FUNC_TYPE (param_refs, NAME (id, ref_))) ->
+      (match List.(length param_refs = length params) with
+      | false -> failwith "should not happend, function params length is not fixed"
+      | true  ->
+        (*handle return type*)
+        (match return with
+        | None -> ref_ := Some body_type;
+        | Some ty -> 
+            match S.lookup tenv ty with
+            | Some t -> if body_type = t then ref_ := Some t else failwith "body type and return type does not match"
+            | None   -> failwith (Printf.sprintf "%s is not defined" (S.name ty)));
+
+        (*handle function parameter*)
+        List.iter2_exn param_refs params 
+          ~f:(fun param_ref param -> match param_ref with
+          | NAME (id, ref_) -> 
+            (match !ref_ with
+            | Some _ -> failwith "this should not happend"
+            | None  -> ref_ := Some param)
+          | _ -> failwith "param_ref should not have other type other than NAME"));
+        (venv, tenv)
+  | _ -> failwith "should not happend"
+
+
+and trans_vardecl venv tenv vname vtype rhs = 
+  (match S.lookup venv vname with
+  | None -> failwith (Printf.sprintf "%s is undefined, should not happend" (S.name vname))
+  | Some (VAR_TYPE (NAME (id, ref_))) ->
+      (let {exp = _; ty = rhs_ty} = trans_exp venv tenv rhs in
+      match !ref_ with
+      | Some _ -> failwith "this should not happend"
+      | None ->  
+          match vtype with
+          | None ->  ref_ := Some rhs_ty
+          | Some ty ->
+            (match S.lookup tenv ty with
+            | None -> failwith (Printf.sprintf "%s is not define" (S.name ty))
+            | Some var_declty -> 
+                if var_declty = rhs_ty then ref_ := Some rhs_ty else failwith "var type and rhs does not match"))
+  | Some _ -> failwith "this should not happend");
+  (venv, tenv)
+
+
+
+  
 
 
 
