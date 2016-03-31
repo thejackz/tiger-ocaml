@@ -92,6 +92,8 @@ and trans_boolexp venv tenv bool_exp =
        | false, false -> failwith (Printf.sprintf "Expect e1, e2 has type int, but get %s %s instead\n" 
                                     (D.type_to_string e1_ty) (D.type_to_string e2_ty))
 
+
+
 and trans_ariths venv tenv arith_exp = 
   match arith_exp with
   | Add (e1, e2)  
@@ -371,14 +373,4 @@ and trans_vardecl venv tenv vname vtype rhs =
                 if var_declty = rhs_ty then ref_ := Some rhs_ty else failwith "var type and rhs does not match"))
   | Some _ -> failwith "this should not happend");
   (venv, tenv)
-
-
-
-  
-
-
-
-
-                                            
-
 
