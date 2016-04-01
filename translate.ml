@@ -38,9 +38,7 @@ let new_level {parent; name; formals} =
 let formals level = 
   match level with
   | Top -> []
-  | Level (frame, parent, cmp) -> frame.
-
-
+  | Level (frame, parent, cmp) as l -> (l, frame.formals)
 
 
 type exp = 
