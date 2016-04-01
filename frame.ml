@@ -3,6 +3,10 @@ open Core.Std
 
 module type FRAME = sig
 
+
+  (* frame is used to describe functions. What is the name? What are the formal parameter?
+   * and what are its local variables
+   *)
   type frame
 
   (*

@@ -3,8 +3,44 @@ open Frame
 open Tree
 open Temp
 
-module F = Frame
+module F = MISP
 module T = Tree
+
+
+
+(*Every time a new function is declared or in a new let expression, a new level should be created*)
+type level = 
+  | Top
+  | Level of {frame : F.frame; parent : level; cmp : int}
+
+
+(* Access type define the level of *)
+type access = level * F.access
+
+let level_cmp = ref 0
+
+let inc_levelcmp () = level_cmp := !level_cmp + 1
+let dec_levelcmp () = level_cmp := !level_cmp - 1
+let get_level_cmp () = !level_cmp
+
+
+
+let outermost = Top
+
+let new_level {parent; name; formals} = 
+  (*add one bool at the beginning of formals, this is the static links*)
+  let new_frame = F.new_frame {name = name; escapes = (true :: formals)} in
+  let levelcmp = get_level_cmp () in
+  inc_levelcmp ();
+  Level (new_frame, parent, levelcmp)
+
+
+let formals level = 
+  match level with
+  | Top -> []
+  | Level (frame, parent, cmp) -> frame.
+
+
 
 
 type exp = 
