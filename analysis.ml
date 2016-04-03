@@ -7,20 +7,13 @@ open Core.Std
 
 module D = Datatypes
 module S = Symbol
+module T = Translate
 module E = Env
 
 type venv = Env.env_type Symbol.table
 type tenv = ty Symbol.table
 
-type expty = {
-  exp     :  Translate.exp;
-  ty      :  Datatypes.datatype;
-}
-
-let make_expty exp ty = {
-  exp = exp ;
-  ty  = ty  ;
-}
+type expty = Translate.exp * Datatypes.datatype
 
 let actual_type ty = 
   match ty with
@@ -32,13 +25,14 @@ let actual_type_lst type_lst =
     ~f:(fun ty -> actual_type ty)
 
 
-let rec trans_exp venv tenv ast = 
+let rec trans_exp (cur_level : T.level) (break_to : Temp.label option)(venv : Env.env_type Symbol.table)
+                  (tenv : Env.ty Symbol.table) (ast : Ast.exp) : expty = 
   match ast with 
-  | Nil                                 -> make_expty () NIL
-  | Break                               -> make_expty () NIL
-  | Int i                               -> make_expty () INT 
-  | String s                            -> make_expty () STRING
-  | Lvalue lv                           -> trans_lvalue venv tenv lv
+  | Nil                                 -> T.trans_nil (), D.NIL
+  | Int i                               -> T.trans_int i, D.INT
+  | String s                            -> T.trans_string s, D.STRING
+  | Break                               -> trans_break break_to
+  | Lvalue lv                           -> trans_lvalue cur_level venv tenv lv
   | Exp_seq exp_seq                     -> trans_exp_seq venv tenv exp_seq
   | Negation_exp e                      -> trans_neg_exp venv tenv e
   | Call_exp (fname, params)            -> trans_call_exp venv tenv fname params 
@@ -50,60 +44,66 @@ let rec trans_exp venv tenv ast =
   | Whileexp (cond, do_exp)             -> trans_whileexp venv tenv cond do_exp
   | Forexp (id, first, last, do_exp)    -> trans_forexp venv tenv id first last do_exp
   | Letexp (decls, exps)                -> trans_letexp venv tenv decls exps
-  | ArithExp arith_exp                  -> trans_ariths venv tenv arith_exp
-  | BoolExp bool_exp                    -> trans_boolexp venv tenv bool_exp
-  | CmpExp cmp_exp                      -> trans_cmpexp venv tenv cmp_exp
+  | ArithExp arith_exp                  -> trans_ariths cur_level break_to venv tenv arith_exp
+  | BoolExp bool_exp                    -> trans_boolexp cur_level break_to venv tenv bool_exp
+  | CmpExp cmp_exp                      -> trans_cmpexp cur_level break_to venv tenv cmp_exp
 
-and trans_cmpexp venv tenv cmp_exp = 
+
+and trans_break break_to = 
+  match break_to with
+  | None -> failwith "break is not in a loop"
+  | Some label -> T.trans_break label, Datatypes.UNIT
+
+and trans_cmpexp cur_level break_to venv tenv cmp_exp = 
   match cmp_exp with
   | Eq (e1, e2)
   | Neq (e1, e2) ->
-       (let e1_ty = (trans_exp venv tenv e1).ty in
-       let e2_ty = (trans_exp venv tenv e2).ty in
+       (let e1_ir, e1_ty = trans_exp cur_level break_to venv tenv e1 in
+       let e2_ir, e2_ty = trans_exp cur_level break_to venv tenv e2 in
        match e1_ty, e2_ty with
        | D.INT, D.INT 
        | D.RECORD _, D.RECORD _
-       | D.ARRAY _, D.ARRAY _ -> make_expty () D.INT
+       | D.ARRAY _, D.ARRAY _ -> T.trans_cmpexp cmp_exp e1_ir e2_ir, D.INT
        | _, _ -> failwith (Printf.sprintf "Incompatible type %s %s for comparison op"
                             (D.type_to_string e1_ty) (D.type_to_string e2_ty)))
   | Le (e1, e2)
   | Lt (e1, e2)
   | Ge (e1, e2)
   | Gt (e1, e2) ->
-       (let e1_ty = (trans_exp venv tenv e1).ty in
-       let e2_ty = (trans_exp venv tenv e2).ty in
+       (let e1_ir, e1_ty = trans_exp cur_level break_to venv tenv e1 in
+       let e2_ir, e2_ty = trans_exp cur_level break_to venv tenv e2 in
        match e1_ty, e2_ty with
-       | D.INT, D.INT  -> make_expty () D.INT
+       | D.INT, D.INT  -> T.trans_cmpexp cmp_exp e1_ir e2_ir, D.INT
        | _, _ -> failwith (Printf.sprintf "Incompatible type %s %s for comparison op"
                             (D.type_to_string e1_ty) (D.type_to_string e2_ty)))
 
-and trans_boolexp venv tenv bool_exp = 
+and trans_boolexp cur_level break_to venv tenv bool_exp = 
   match bool_exp with
   | Or (e1, e2) 
   | And (e1, e2) ->
-       let e1_ty = (trans_exp venv tenv e1).ty in
-       let e2_ty = (trans_exp venv tenv e2).ty in
+       (let e1_ir, e1_ty = trans_exp cur_level break_to venv tenv e1 in
+       let e2_ir, e2_ty = trans_exp cur_level break_to venv tenv e2 in
        match e1_ty = D.INT, e2_ty = D.INT with
-       | true, true -> make_expty () D.INT
+       | true, true -> T.trans_boolexp bool_exp e1_ir e2_ir, D.INT
        | false, true -> failwith (Printf.sprintf "Expect e1 has type int, but get %s instead\n" 
                                     (D.type_to_string e1_ty))
        | true, false -> failwith (Printf.sprintf "Expect e2 has type int, but get %s instead\n" 
                                     (D.type_to_string e2_ty))
        | false, false -> failwith (Printf.sprintf "Expect e1, e2 has type int, but get %s %s instead\n" 
-                                    (D.type_to_string e1_ty) (D.type_to_string e2_ty))
+                                    (D.type_to_string e1_ty) (D.type_to_string e2_ty)))
 
 
 
-and trans_ariths venv tenv arith_exp = 
+and trans_ariths cur_level break_to venv tenv arith_exp = 
   match arith_exp with
   | Add (e1, e2)  
   | Sub (e1, e2)
   | Mul (e1, e2)
   | Div (e1, e2) ->
-      (let e1_ty = (trans_exp venv tenv e1).ty in
-       let e2_ty = (trans_exp venv tenv e2).ty in
+       (let e1_ir, e1_ty = trans_exp cur_level break_to venv tenv e1 in
+       let e2_ir, e2_ty = trans_exp cur_level break_to venv tenv e2 in
        match e1_ty = D.INT, e2_ty = D.INT with
-       | true, true -> make_expty () D.INT
+       | true, true -> T.trans_ariths arith_exp e1_ir e2_ir, D.INT
        | false, true -> failwith (Printf.sprintf "Expect e1 has type int, but get %s instead\n" 
                                     (D.type_to_string e1_ty))
        | true, false -> failwith (Printf.sprintf "Expect e2 has type int, but get %s instead\n" 
@@ -222,34 +222,32 @@ and trans_arr_create venv tenv type_id size init =
   | None, _ -> failwith ((S.name type_id ) ^ " is undefined")
 
 
-and trans_lvalue venv tenv lv = 
+and trans_lvalue cur_level venv tenv lv : expty = 
   match lv with
   | Id id -> 
       (match S.lookup venv id with
-      | Some (E.VAR_TYPE ty) -> 
-          make_expty () (actual_type ty)
-      | Some (E.FUNC_TYPE (params, return)) ->
+      | Some (E.VAR_TYPE (access, ty)) -> Translate.trans_id access cur_level, ty
+      | Some (t) ->
           (failwith "Expecting a variable, but get a function")
       | None   -> (failwith ("Unknow id " ^ (S.name id))))
   | Subscript (lv, exp) -> 
-      (let {exp = _; ty = lv_type} = trans_lvalue venv tenv lv in
-      let {exp = _; ty = exp_type} = trans_exp venv tenv exp in
+      (let lv_ir, lv_type = trans_lvalue cur_level venv tenv lv in
+      let e_ir, exp_type = trans_exp cur_level venv tenv exp in
        match lv_type, exp_type with
-       | D.ARRAY (e_type, u), D.INT -> make_expty () (actual_type e_type) 
+       | D.ARRAY (e_type, u), D.INT -> 
+           Translate.trans_subscript lv_ir e_ir, (actual_type e_type)
        | _ as t, D.INT -> failwith ("expecting array but get " ^ (D.type_to_string t))
        | D.ARRAY _, t -> failwith ("expecting INT as index but get " ^ (D.type_to_string t))
        | vid, sub -> 
            failwith (("expecting array but get " ^ (D.type_to_string vid)) ^ ", " ^
                      ("expecting INT as index but get " ^ (D.type_to_string sub))))
   | Field_exp (lv, id) ->
-      (let {exp = _; ty = lv_type} = trans_lvalue venv tenv lv in
+      (let lv_ir, lv_type = trans_lvalue cur_level venv tenv lv in
        match lv_type with
        | D.RECORD (fields, _) -> 
-           (let field = List.filter fields ~f:(fun (name, ty) -> name = id) in
-           match field  with
-           | [] -> failwith "no field exist in record"
-           | (name, ty) :: []  -> make_expty () (actual_type ty)
-           | _   -> failwith "should not happend")
+           (match Translate.trans_fieldexp lv_ir id fields with
+            | None -> failwith "error, field not found"
+            | Some expty -> expty  )
       | _  -> failwith "not getting a record type for field access")
 
 and trans_letexp venv tenv decls exps = 

@@ -15,9 +15,9 @@ module type FRAME = sig
    *)
   type access
 
-  type frame_arg = {name: Temp.label; escapes: bool list} 
+  (*type frame_arg = {name: Temp.label; escapes: bool list} *)
 
-  val new_frame : frame_arg -> frame
+  val new_frame : Temp.label -> bool list -> frame
 
   val name : frame -> Temp.label
 
@@ -53,13 +53,13 @@ module MISP : FRAME = struct
     let res = !loc * word_size in
     loc := !loc + 1; res
 
-  let new_frame frame_arg  = 
-    let fs = List.map frame_arg.escapes
+  let new_frame name escapes  = 
+    let fs = List.map escapes
       ~f:(fun t -> if t then (In_frame (gen_offset ())) else In_reg (Temp.new_temp ()))
     in
     let l = List.length fs in
     {
-      name    = frame_arg.name;
+      name    = name;
       length  = l;
       formals = fs;
       locals  = [];

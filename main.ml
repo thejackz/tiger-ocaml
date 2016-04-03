@@ -9,10 +9,10 @@ open Ast
 open Datatypes
 open Env
 open Symbol
-open Translate
 open Frame
 open Temp
 open Tree
+open Translate
 
 
 let lexer s = 

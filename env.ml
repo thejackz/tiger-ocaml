@@ -1,10 +1,12 @@
 open Datatypes
+open Translate
+open Temp
 
 type ty = Datatypes.datatype
 
 type env_type = 
-  | VAR_TYPE  of ty
-  | FUNC_TYPE of ty list * ty
+  | VAR_TYPE  of Translate.access * ty
+  | FUNC_TYPE of Translate.level * Temp.label * ty list * ty
 
 (* 
  * environment for type value

@@ -1,4 +1,4 @@
-
+open Core.Std
 open Frame
 open Tree
 open Temp
@@ -9,12 +9,15 @@ module T = Tree
 
 
 (*Every time a new function is declared or in a new let expression, a new level should be created*)
-type level = 
-  | Top
-  | Level of {frame : F.frame; parent : level; cmp : int}
+type level = {
+  parent : level option;
+  frame  : F.frame ;
+  cmp    : int;
+}
+  
 
 
-(* Access type define the level of *)
+(* Access type define the level and the location (memory or frame) *)
 type access = level * F.access
 
 let level_cmp = ref 0
@@ -25,20 +28,35 @@ let get_level_cmp () = !level_cmp
 
 
 
-let outermost = Top
+let outermost = {
+  parent   = None;
+  frame    = F.new_frame (Temp.named_label "main") [];
+  cmp      = !level_cmp;
+}
 
-let new_level {parent; name; formals} = 
+let new_level parent name formals = 
   (*add one bool at the beginning of formals, this is the static links*)
-  let new_frame = F.new_frame {name = name; escapes = (true :: formals)} in
+  let new_frame = F.new_frame name (true :: formals) in
   let levelcmp = get_level_cmp () in
   inc_levelcmp ();
-  Level (new_frame, parent, levelcmp)
+  {parent = parent; frame = new_frame; cmp = levelcmp}
 
 
-let formals level = 
-  match level with
-  | Top -> []
-  | Level (frame, parent, cmp) as l -> (l, frame.formals)
+
+(* Process the frame formals of the current level 
+ * and attach level to each access of frame's access
+ * Note that since the first element of formals is 
+ * the static link, so that is discard*)
+let formals level : access list = 
+  let fm_formals = F.formals level.frame in
+  match List.map fm_formals ~f:(fun access -> level, access) with
+  | [] -> failwith "formals should not be empty"
+  | hd :: tl -> tl
+
+
+let alloc_local level escape = 
+  level, (F.alloc_locals level.frame escape)
+
 
 
 type exp = 
@@ -88,3 +106,36 @@ let unCx exp =
 
 
 
+let tran_int i =
+  failwith ""
+
+let tran_nil () = 
+  failwith ""
+
+let tran_string s = 
+  failwith ""
+
+let tran_break label = 
+  failwith ""
+
+let trans_id access level =
+  failwith ""
+
+let trans_subscript lv_ir index = 
+  failwith ""
+
+let trans_fieldexp base id fields = 
+  failwith ""
+  
+  
+
+
+
+(*let tran_expseq : exp list -> exp*)
+(*let tran_negexp : exp -> exp*)
+(*let tran_callexp : Temp.label -> exp list -> level -> level -> exp*)
+(*let tran_arr : exp -> exp -> exp*)
+(*let tran_rec : exp list -> exp*)
+(*let trans_if : exp -> exp -> exp option -> exp*)
+(*let trans_while : exp -> exp -> Temp.label -> exp*)
+(*let trans_assign : exp -> exp -> exp*)
