@@ -29,6 +29,9 @@ val unNx : exp -> Tree.stm
 val unCx : exp -> (Temp.label -> Temp.label -> Tree.stm)
 
 
+val empty : exp
+
+
 
 (* funtions for translating AST to IR*)
 
@@ -48,13 +51,12 @@ val trans_fieldexp : exp -> Symbol.symbol -> (Symbol.symbol * Datatypes.datatype
                          -> (exp * Datatypes.datatype) option
 
 
-
-(*val tran_expseq : exp list -> exp*)
-(*val tran_negexp : exp -> exp*)
-(*val tran_callexp : Temp.label -> exp list -> level -> level -> exp*)
-(*val tran_arr : exp -> exp -> exp*)
-(*val tran_rec : exp list -> exp*)
-(*val trans_if : exp -> exp -> exp option -> exp*)
-(*val trans_while : exp -> exp -> Temp.label -> exp*)
-(*val trans_assign : exp -> exp -> exp*)
-
+val trans_forexp : exp -> Temp.label option -> exp -> exp -> exp -> exp
+val trans_whileexp : Temp.label option -> exp -> exp -> exp
+val trans_assignment : exp -> exp -> exp
+val trans_ifthenelse : exp -> exp -> exp -> exp
+val trans_ifthen : exp -> exp -> exp
+val trans_rec_create : exp list -> exp
+val trans_seq : exp list -> exp
+val trans_funcall : level -> exp list -> exp
+val trans_arrcreate : exp -> exp -> exp

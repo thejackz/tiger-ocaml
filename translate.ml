@@ -101,22 +101,15 @@ let unCx exp =
   | Nx _ -> failwith "this should not happend"
 
 
+let empty = Ex (CONST 0)
 
 
-
-
-
-let tran_int i =
+let trans_int i =
   failwith ""
 
-let tran_nil () = 
+let trans_nil () = 
   failwith ""
 
-let tran_string s = 
-  failwith ""
-
-let tran_break label = 
-  failwith ""
 
 let trans_id access level =
   failwith ""
@@ -127,15 +120,46 @@ let trans_subscript lv_ir index =
 let trans_fieldexp base id fields = 
   failwith ""
   
+
+let trans_forexp index_id breakpoint low high body = 
+  failwith ""
+
+let trans_whileexp breakpoint cond body = 
+  failwith ""
   
+let trans_assignment lhs rhs = 
+  failwith ""
 
+let trans_ifthenelse test then_e else_e = 
+  failwith ""
 
+let trans_ifthen test then_e = 
+  failwith ""
 
-(*let tran_expseq : exp list -> exp*)
-(*let tran_negexp : exp -> exp*)
-(*let tran_callexp : Temp.label -> exp list -> level -> level -> exp*)
-(*let tran_arr : exp -> exp -> exp*)
-(*let tran_rec : exp list -> exp*)
-(*let trans_if : exp -> exp -> exp option -> exp*)
-(*let trans_while : exp -> exp -> Temp.label -> exp*)
-(*let trans_assign : exp -> exp -> exp*)
+let trans_rec_create elts = 
+  failwith ""
+
+let trans_seq ir_lst = 
+  failwith ""
+
+let trans_funcall level ir_lst = 
+  failwith ""
+
+let trans_arrcreate size init = 
+  failwith ""
+
+let trans_ariths ast exp exp = 
+  failwith ""
+
+let trans_boolexp ast exp exp = 
+  failwith ""
+
+let trans_cmpexp ast exp exp = 
+  failwith ""
+
+let trans_break label = 
+  failwith ""
+
+let trans_string str = 
+  failwith ""
+
