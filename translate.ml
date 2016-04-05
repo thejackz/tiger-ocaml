@@ -101,6 +101,11 @@ let unCx exp =
   | Nx _ -> failwith "this should not happend"
 
 
+let get_static_link level = 
+  let formals = F.formals level.frame in
+  List.hd formals
+
+
 let empty = Ex (CONST 0)
 
 
@@ -111,8 +116,19 @@ let trans_nil () =
   failwith ""
 
 
-let trans_id access level =
-  failwith ""
+let trans_id (def_level, f_access) use_level =
+  match def_level = use_level with
+  (* true -> it is in the current frame *)
+  | true -> 
+      (match f_access with
+        | In_reg reg -> Ex (T.TEMP reg)
+        | Im_mem offset -> Ex (T.MEM (T.BINOP (F.fp ))))
+  (* false -> it is in the previous frame*)
+  | false ->
+      let static_link = get_static_link use_level in
+      match 
+
+
 
 let trans_subscript lv_ir index = 
   failwith ""
