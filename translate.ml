@@ -100,23 +100,19 @@ let unCx exp =
   | Ex e -> fun t f -> T.CJUMP (T.EQ, e, T.CONST 0, t, f)
   | Nx _ -> failwith "this should not happend"
 
-
 let get_static_link level = 
   let formals = F.formals level.frame in
   match List.hd formals with
   | None -> failwith "no static link exist, this is a bug"
   | Some link -> link
 
-
 let empty = Ex (CONST 0)
-
 
 let trans_int i =
   failwith ""
 
 let trans_nil () = 
   failwith ""
-
 
 let rec trans_id (id_access : access) use_level =
   let def_level, f_access = id_access in
@@ -134,12 +130,10 @@ let rec trans_id (id_access : access) use_level =
            
 
 
+let trans_subscript lv_ir index_ir = 
+  let lv_exp, index_exp = unEx lv_ir, unEx index_ir in
+  Ex T.(MEM (BINOP (PLUS, lv_exp, index_exp)))
 
-
-
-
-let trans_subscript lv_ir index = 
-  failwith ""
 
 let trans_fieldexp base id fields = 
   failwith ""
