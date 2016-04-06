@@ -103,7 +103,9 @@ let unCx exp =
 
 let get_static_link level = 
   let formals = F.formals level.frame in
-  List.hd formals
+  match List.hd formals with
+  | None -> failwith "no static link exist, this is a bug"
+  | Some link -> link
 
 
 let empty = Ex (CONST 0)
@@ -116,17 +118,23 @@ let trans_nil () =
   failwith ""
 
 
-let trans_id (def_level, f_access) use_level =
+let rec trans_id (id_access : access) use_level =
+  let def_level, f_access = id_access in
   match def_level = use_level with
   (* true -> it is in the current frame *)
-  | true -> 
-      (match f_access with
-        | In_reg reg -> Ex (T.TEMP reg)
-        | Im_mem offset -> Ex (T.MEM (T.BINOP (F.fp ))))
+  | true -> Ex (F.calc_texp (T.TEMP F.fp) f_access)
   (* false -> it is in the previous frame*)
   | false ->
       let static_link = get_static_link use_level in
-      match 
+      match use_level.parent with
+      | None -> failwith "variable is undefined, type checker has bug"
+      | Some parent ->
+          let previous_ir = unEx (trans_id id_access parent) in
+          Ex (F.calc_texp previous_ir static_link)
+           
+
+
+
 
 
 

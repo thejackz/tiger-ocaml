@@ -1,5 +1,9 @@
 open Temp
+open Translate
 open Core.Std
+open Tree
+
+
 
 module type FRAME = sig
 
@@ -9,11 +13,13 @@ module type FRAME = sig
    *)
   type frame
 
+  type register
+
   (*
    *   The access type describe formals and locals that might
    *   be in the frame or in the register
    *)
-  type access
+  type access 
 
   (*type frame_arg = {name: Temp.label; escapes: bool list} *)
 
@@ -24,16 +30,24 @@ module type FRAME = sig
   val formals : frame -> access list
 
   val alloc_locals : frame -> bool -> access
+  
+  val calc_texp : Tree.exp -> access -> Tree.exp
+
+  val fp : Temp.temp
 
 end
 
 module MISP : FRAME = struct
+  
+  module T = Tree
 
   let loc = ref 0
 
   let word_size = 4
 
   type offset = int
+
+  type register = string
   
   type access = 
     | In_frame of offset
@@ -82,6 +96,20 @@ module MISP : FRAME = struct
     "gp"; "fp"; "sp"; "ra"; "at"; "zero"; 
   
   ]
+
+
+  (**
+   *  this function takes an tree.exp and frame.access
+   *  the tree.exp is the base address and the frame.access
+   *  is the offset if its in the frame
+   *  and return another tree.access.
+   *)
+  let calc_texp base access = 
+    match access with
+    | In_reg reg -> T.TEMP reg
+    | In_frame offset -> T.MEM (T.BINOP (T.PLUS, base, T.CONST offset))
+
+  let fp = failwith "unimplemented"
 
 
 end
