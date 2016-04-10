@@ -51,7 +51,7 @@ val trans_fieldexp : exp -> Symbol.symbol -> (Symbol.symbol * Datatypes.datatype
                          -> (exp * Datatypes.datatype) option
 
 
-val trans_forexp : exp -> Temp.label option -> exp -> exp -> exp -> exp
+(*val trans_forexp : exp -> Temp.label option -> exp -> exp -> exp -> exp*)
 val trans_whileexp : Temp.label option -> exp -> exp -> exp
 val trans_assignment : exp -> exp -> exp
 val trans_ifthenelse : exp -> exp -> exp -> exp

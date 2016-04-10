@@ -49,6 +49,7 @@ let rec trans_exp (cur_level : T.level) (break_to : Temp.label option)(venv : En
   | CmpExp cmp_exp                      -> trans_cmpexp cur_level break_to venv tenv cmp_exp
 
 
+
 and trans_break break_to = 
   match break_to with
   | None -> failwith "break is not in a loop"
@@ -111,19 +112,20 @@ and trans_ariths cur_level break_to venv tenv arith_exp =
        | false, false -> failwith (Printf.sprintf "Expect e1, e2 has type int, but get %s %s instead\n" 
                                     (D.type_to_string e1_ty) (D.type_to_string e2_ty)))
 
+
 and trans_forexp cur_level break_to venv tenv id first last body_exp = 
+  let for_to_while id first last do_exp =
+    let limit = Symbol.symbol_of_string "limit" in
+    Letexp ([Var_decl (id, None, first); Var_decl (limit, None, last)],
+             [Whileexp (CmpExp (Lt (Lvalue (Id id), Lvalue (Id limit))), 
+                       Exp_seq [do_exp; Assignment ((Id id), (ArithExp (Add (Lvalue (Id id), Int 1))))])])
+  in
   let low_ir, low_ty = trans_exp cur_level break_to venv tenv first in
   let high_ir, high_ty = trans_exp cur_level break_to venv tenv last in
   match low_ty, high_ty with
   | D.INT, D.INT ->
-      (let index_access = T.alloc_local cur_level true in
-      let new_venv = Symbol.add venv id (E.VAR_TYPE (index_access, D.INT)) in
-      let breakpoint = Temp.new_label () in
-      let body_ir, body_ty = trans_exp cur_level (Some breakpoint) new_venv tenv body_exp in 
-      match body_ty with
-      | D.UNIT ->
-          T.trans_forexp (T.trans_id index_access cur_level) (Some breakpoint) low_ir high_ir body_ir, D.UNIT
-      | _ -> failwith "expecting body to have unit type")
+      (let while_exp = for_to_while id first last body_exp in
+       trans_exp cur_level break_to venv tenv while_exp)
   | _, D.INT -> failwith (Printf.sprintf "Expectig first has type int, but get %s instead\n" 
                                     (D.type_to_string low_ty))
   | D.INT, _ -> failwith (Printf.sprintf "Expectig last has type int, but get %s instead\n" 

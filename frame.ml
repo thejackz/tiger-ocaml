@@ -19,9 +19,13 @@ module type FRAME = sig
    *   The access type describe formals and locals that might
    *   be in the frame or in the register
    *)
-  type access 
+  type access = 
+    | In_frame of int
+    | In_reg of Temp.temp
 
-  (*type frame_arg = {name: Temp.label; escapes: bool list} *)
+  type frag
+
+  val word_size : int
 
   val new_frame : Temp.label -> bool list -> frame
 
@@ -34,6 +38,12 @@ module type FRAME = sig
   val calc_texp : Tree.exp -> access -> Tree.exp
 
   val fp : Temp.temp
+
+  val make_fragstring : Temp.label -> string -> frag
+
+  val make_fragproc : Tree.stm -> frame -> frag
+
+  val malloc : Temp.label
 
 end
 
@@ -53,8 +63,6 @@ module MISP : FRAME = struct
     | In_frame of offset
     | In_reg of Temp.temp
 
-  type frame_arg = { name: Temp.label; escapes: bool list } 
-
   type frame = {
     name            : Temp.label;       (* name of the frame *)
     length          : int ;             (* number of parameter *)
@@ -62,6 +70,16 @@ module MISP : FRAME = struct
     mutable locals  : access list;      (* local variables *)
   }
 
+  type frag = 
+    | Proc   of Tree.stm * frame  (* body and frame *)
+    | String of Temp.label * string 
+
+  let make_fragstring lab str = String (lab, str)
+  let make_fragproc stm body = Proc (stm, body)
+
+  let word_size = 4
+
+  let malloc = Temp.named_label "malloc"
 
   let gen_offset () = 
     let res = !loc * word_size in
