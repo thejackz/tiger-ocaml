@@ -19,9 +19,7 @@ module type FRAME = sig
    *   The access type describe formals and locals that might
    *   be in the frame or in the register
    *)
-  type access = 
-    | In_frame of int
-    | In_reg of Temp.temp
+  type access 
 
   type frag
 
@@ -44,6 +42,10 @@ module type FRAME = sig
   val make_fragproc : Tree.stm -> frame -> frag
 
   val malloc : Temp.label
+
+  val init_array : Temp.label
+
+  val external_call : string -> Tree.exp list -> Tree.exp
 
 end
 
@@ -80,6 +82,8 @@ module MISP : FRAME = struct
   let word_size = 4
 
   let malloc = Temp.named_label "malloc"
+
+  let init_array = Temp.named_label "init_array"
 
   let gen_offset () = 
     let res = !loc * word_size in
@@ -128,6 +132,11 @@ module MISP : FRAME = struct
     | In_frame offset -> T.MEM (T.BINOP (T.PLUS, base, T.CONST offset))
 
   let fp = failwith "unimplemented"
+
+
+  let external_call name args = 
+    T.(CALL (NAME (named_label name), args))
+
 
 
 end

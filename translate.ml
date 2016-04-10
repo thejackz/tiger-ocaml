@@ -17,16 +17,6 @@ let fragments = ref []
 let add_frag frag = 
   fragments := frag :: !fragments
 
-(**
- *  this function takes an tree.exp and frame.access
- *  the tree.exp is the base address and the frame.access
- *  is the offset if its in the frame
- *  and return another tree.access.
- *)
-let calc_texp base access = 
-  match access with
-  | In_reg reg -> T.TEMP reg
-  | In_frame offset -> T.MEM (T.BINOP (T.PLUS, base, T.CONST offset))
 
 (*Every time a new function is declared or in a new let expression, a new level should be created*)
 type level = {
@@ -161,7 +151,7 @@ let rec trans_id (id_access : access) use_level =
   let def_level, f_access = id_access in
   match def_level = use_level with
   (* true -> it is in the current frame *)
-  | true -> Ex (calc_texp (T.TEMP F.fp) f_access)
+  | true -> Ex (F.calc_texp (T.TEMP F.fp) f_access)
   (* false -> it is in the previous frame*)
   | false ->
       let static_link = get_static_link use_level in
@@ -169,7 +159,7 @@ let rec trans_id (id_access : access) use_level =
       | None -> failwith "variable is undefined, type checker has bug"
       | Some parent ->
           let previous_ir = unEx (trans_id id_access parent) in
-          Ex (calc_texp previous_ir static_link)
+          Ex (F.calc_texp previous_ir static_link)
            
 
 (* Subscript: a[3] -> base (a) + 3 * wordsize *)
@@ -268,10 +258,12 @@ let trans_seq ir_lst =
   Nx T.(SEQ (sequence, unNx last))
 
 let trans_funcall level ir_lst = 
-  failwith ""
+  let fname = F.name level.frame in
+  let static_link = get_static_link level in
+  T.(NAME fname, [static_link :: ir_lst])
 
 let trans_arrcreate size init = 
-  failwith ""
+  T.(CALL (NAME (F.init_array), [size; init]))
 
 let trans_ariths ast e1 e2 = 
   let binop = arith_ast2tree ast in
