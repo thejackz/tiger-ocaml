@@ -1,9 +1,6 @@
 open Temp
-open Translate
 open Core.Std
 open Tree
-
-
 
 module type FRAME = sig
 
@@ -36,6 +33,8 @@ module type FRAME = sig
   val calc_texp : Tree.exp -> access -> Tree.exp
 
   val fp : Temp.temp
+
+  val rv : Temp.temp
 
   val make_fragstring : Temp.label -> string -> frag
 
@@ -132,6 +131,8 @@ module MISP : FRAME = struct
     | In_frame offset -> T.MEM (T.BINOP (T.PLUS, base, T.CONST offset))
 
   let fp = failwith "unimplemented"
+
+  let rv = failwith "unimplemented"
 
 
   let external_call name args = 

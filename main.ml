@@ -12,7 +12,7 @@ open Symbol
 open Frame
 open Temp
 open Tree
-open Translate
+(*open Translate*)
 
 
 let lexer s = 

@@ -2,12 +2,10 @@ open Core.Std
 open Frame
 open Tree
 open Temp
-open MISP
 
 module F = MISP
 module T = Tree
 module A = Ast
-
 
 
 let wordsize = F.word_size
@@ -25,10 +23,8 @@ type level = {
   cmp    : int;
 }
   
-
-
 (* Access type define the level and the location (memory or frame) *)
-type access = level * F.access
+type taccess = level * F.access
 
 let level_cmp = ref 0
 
@@ -57,7 +53,7 @@ let new_level parent name formals =
  * and attach level to each access of frame's access
  * Note that since the first element of formals is 
  * the static link, so that is discard*)
-let formals level : access list = 
+let formals level : taccess list = 
   let fm_formals = F.formals level.frame in
   match List.map fm_formals ~f:(fun access -> level, access) with
   | [] -> failwith "formals should not be empty"
@@ -147,7 +143,7 @@ let trans_int i =
 let trans_nil () = 
   Ex (T.CONST 0)
 
-let rec trans_id (id_access : access) use_level =
+let rec trans_id (id_access : taccess) use_level =
   let def_level, f_access = id_access in
   match def_level = use_level with
   (* true -> it is in the current frame *)
@@ -284,5 +280,13 @@ let trans_string str =
   let lab = Temp.new_label () in
   add_frag (F.make_fragstring lab str);
   Ex T.(NAME lab)
-  
 
+
+let trans_letexp init_exps body =
+  let inits = List.map init_exps ~f:(fun init -> unNx init) in
+  Ex T.(ESEQ (seq inits, unEx body))
+
+  
+let proc_entry_exit level body = body
+
+let get_fragments () = !fragments

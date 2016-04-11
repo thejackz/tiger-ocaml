@@ -5,6 +5,7 @@ open Ast
 open Symbol
 open Core.Std
 
+
 module D = Datatypes
 module S = Symbol
 module T = Translate
@@ -25,6 +26,7 @@ let actual_type_lst type_lst =
     ~f:(fun ty -> actual_type ty)
 
 
+
 let rec trans_exp (cur_level : T.level) (break_to : Temp.label option)(venv : Env.env_type Symbol.table)
                   (tenv : Env.ty Symbol.table) (ast : Ast.exp) : expty = 
   match ast with 
@@ -43,7 +45,7 @@ let rec trans_exp (cur_level : T.level) (break_to : Temp.label option)(venv : En
   | Ifthen (test, then_e)               -> trans_ifthen cur_level break_to venv tenv test then_e
   | Whileexp (cond, do_exp)             -> trans_whileexp cur_level break_to venv tenv cond do_exp
   | Forexp (id, first, last, do_exp)    -> trans_forexp cur_level break_to venv tenv id first last do_exp
-  | Letexp (decls, exps)                -> trans_letexp cur_level break_to venv tenv decls exps
+  | Letexp (decls, body)                -> trans_letexp cur_level break_to venv tenv decls body
   | ArithExp arith_exp                  -> trans_ariths cur_level break_to venv tenv arith_exp
   | BoolExp bool_exp                    -> trans_boolexp cur_level break_to venv tenv bool_exp
   | CmpExp cmp_exp                      -> trans_cmpexp cur_level break_to venv tenv cmp_exp
@@ -258,9 +260,11 @@ and trans_lvalue cur_level break_to venv tenv lv : expty =
             | Some expty -> expty  )
       | _  -> failwith "not getting a record type for field access")
 
-and trans_letexp cur_level break_to venv tenv decls exps = 
-  let (new_venv, new_tenv) = trans_decls cur_level break_to venv tenv decls in
-  trans_exp_seq cur_level break_to new_venv new_tenv exps
+and trans_letexp cur_level break_to venv tenv decls body = 
+  let (new_venv, new_tenv, init_lst) = trans_decls cur_level break_to venv tenv decls in
+  let body_ir, t = trans_exp_seq cur_level break_to new_venv new_tenv body in
+  T.trans_letexp init_lst body_ir, t
+
 
 and process_header cur_level break_to venv tenv decls = 
   List.fold_left decls
@@ -285,16 +289,16 @@ and process_header cur_level break_to venv tenv decls =
 and trans_decls cur_level break_to venv tenv decls = 
   let (venv', tenv') = process_header cur_level break_to venv tenv decls in
   List.fold_left decls
-    ~init:(venv', tenv')
-    ~f:(fun (venv, tenv) delc -> trans_decl cur_level break_to venv tenv delc)
+    ~init:(venv', tenv', [])
+    ~f:(fun (venv, tenv, exp_lst) delc -> trans_decl cur_level break_to venv tenv exp_lst delc)
 
-and trans_decl cur_level break_to venv tenv decl =
+and trans_decl cur_level break_to venv tenv exp_lst decl =
   match decl with
-  | Type_decl (id, ty) -> trans_typedecl cur_level break_to venv tenv id ty
+  | Type_decl (id, ty) -> trans_typedecl cur_level break_to venv tenv exp_lst id ty
   | Func_decl (fname, params, return, body) ->
-                          trans_funcdecl cur_level break_to venv tenv fname params return body
+                          trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body
   | Var_decl (vname, vtype, rhs) ->
-                          trans_vardecl cur_level break_to venv tenv vname vtype rhs
+                          trans_vardecl cur_level break_to venv tenv exp_lst vname vtype rhs
 
 and trans_ty tenv id ty =  
   let ty_to_datatype tenv = function
@@ -323,11 +327,11 @@ and trans_ty tenv id ty =
     tenv
 
 
-and trans_typedecl cur_level break_to venv tenv id ty = 
+and trans_typedecl cur_level break_to venv tenv exp_lst id ty = 
   let new_tenv = trans_ty tenv id ty in
-  (venv, new_tenv)
+  (venv, new_tenv, exp_lst)
 
-and trans_funcdecl cur_level break_to venv tenv fname params return body = 
+and trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body = 
   let calculate_escapes params : bool list = failwith "unimplemented" in
   let param_idtys = List.map params
     ~f:(fun (id, type_id) -> match S.lookup tenv type_id with
@@ -364,25 +368,32 @@ and trans_funcdecl cur_level break_to venv tenv fname params return body =
             | Some _ -> failwith "this should not happend"
             | None  -> ref_ := Some param)
           | _ -> failwith "param_ref should not have other type other than NAME"));
-        (venv, tenv)
+        (venv, tenv, exp_lst)
   | _ -> failwith "should not happend"
 
 
-and trans_vardecl cur_level break_to venv tenv vname vtype rhs = 
-  (match S.lookup venv vname with
+and trans_vardecl cur_level break_to venv tenv exp_lst vname vtype rhs = 
+  let lhs_ir, _ = trans_lvalue cur_level break_to venv tenv (Id vname) in
+  match S.lookup venv vname with
   | None -> failwith (Printf.sprintf "%s is undefined, should not happend" (S.name vname))
   | Some (VAR_TYPE (access, (NAME (id, ref_)))) ->
       (let rhs_ir, rhs_ty = trans_exp cur_level break_to venv tenv rhs in
+      let new_exp_lst = (T.trans_assignment lhs_ir rhs_ir) :: exp_lst in
       match !ref_ with
       | Some _ -> failwith "this should not happend"
       | None ->  
           match vtype with
-          | None ->  ref_ := Some rhs_ty
+          | None -> ref_ := Some rhs_ty; (venv, tenv, new_exp_lst)
           | Some ty ->
             (match S.lookup tenv ty with
             | None -> failwith (Printf.sprintf "%s is not define" (S.name ty))
             | Some var_declty -> 
-                if var_declty = rhs_ty then ref_ := Some rhs_ty else failwith "var type and rhs does not match"))
-  | Some _ -> failwith "this should not happend");
-  (venv, tenv)
+                match var_declty = rhs_ty with
+                | true  -> ref_ := Some rhs_ty; (venv, tenv, new_exp_lst)
+                | false -> failwith "var type and rhs does not match"))
+  | Some _ -> failwith "this should not happend"
 
+let trans_prog ast = 
+  let body, t = trans_exp T.outermost None E.base_venv E.base_tenv ast in
+  T.proc_entry_exit T.outermost body in
+  T.get_result ()
