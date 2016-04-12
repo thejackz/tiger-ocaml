@@ -24,7 +24,7 @@ type level = {
 }
   
 (* Access type define the level and the location (memory or frame) *)
-type taccess = level * F.access
+type access = level * F.access
 
 let level_cmp = ref 0
 
@@ -53,7 +53,7 @@ let new_level parent name formals =
  * and attach level to each access of frame's access
  * Note that since the first element of formals is 
  * the static link, so that is discard*)
-let formals level : taccess list = 
+let formals level : access list = 
   let fm_formals = F.formals level.frame in
   match List.map fm_formals ~f:(fun access -> level, access) with
   | [] -> failwith "formals should not be empty"
@@ -62,7 +62,6 @@ let formals level : taccess list =
 
 let alloc_local level escape = 
   level, (F.alloc_locals level.frame escape)
-
 
 
 type exp = 
@@ -143,7 +142,7 @@ let trans_int i =
 let trans_nil () = 
   Ex (T.CONST 0)
 
-let rec trans_id (id_access : taccess) use_level =
+let rec trans_id (id_access : access) use_level =
   let def_level, f_access = id_access in
   match def_level = use_level with
   (* true -> it is in the current frame *)
@@ -167,15 +166,17 @@ let trans_subscript lv_ir index_ir =
 let trans_fieldexp base_ir id fields = 
   let rec get_offset id fields offset = 
     match fields with
-    | [] -> failwith (Printf.sprintf "record does not have %s, there's bug in type checker" (Symbol.name id) )
-    | hd :: rest ->
-        match id = hd with
+    | [] -> None
+    | (sym, ty) :: rest ->
+        match id = sym with
         | false -> get_offset id rest (offset + 1)
-        | true  -> offset
+        | true  -> Some (offset, ty)
   in
   let base_exp = unEx base_ir in
-  let offset = get_offset id fields 0 in
-  Ex T.(MEM (BINOP (PLUS, base_exp, BINOP (MUL, CONST offset, CONST wordsize))))
+  match get_offset id fields 0 with
+  | None -> None
+  | Some (offset, ty) ->
+      Some (Ex T.(MEM (BINOP (PLUS, base_exp, BINOP (MUL, CONST offset, CONST wordsize)))), ty)
 
 
 let trans_whileexp breakpoint cond body = 
@@ -189,7 +190,7 @@ let trans_whileexp breakpoint cond body =
   
 let trans_assignment lhs rhs = 
   let lhs_exp, rhs_exp = unEx lhs, unEx rhs in
-  T.(MOVE (MEM (lhs_exp), rhs_exp))
+   Nx T.(MOVE (MEM (lhs_exp), rhs_exp))
 
 
 let condition_helper test then_e else_e = 
@@ -253,25 +254,32 @@ let trans_seq ir_lst =
   let sequence = seq (List.map front ~f:(fun e -> unNx e)) in
   Nx T.(SEQ (sequence, unNx last))
 
-let trans_funcall level ir_lst = 
-  let fname = F.name level.frame in
-  let static_link = get_static_link level in
-  T.(NAME fname, [static_link :: ir_lst])
+let trans_funcall call_level def_level arg_irs = 
+  let cal_static_link def_level call_level = 
+
+  in
+  let fname = F.name def_level.frame in
+  let args = List.map arg_irs ~f:(fun arg -> unEx arg) in
+  match call_level.parent with
+  | None -> T.(CALL (NAME fname, args))
+  | Some parent_level ->
+      let static_link = cal_static_link def_level call_level in
+      T.(CALL (NAME fname, static_link :: args))
 
 let trans_arrcreate size init = 
   T.(CALL (NAME (F.init_array), [size; init]))
 
 let trans_ariths ast e1 e2 = 
   let binop = arith_ast2tree ast in
-  Ex (BINOP (binop, e1, e2))
+  Ex (BINOP (binop, unEx e1, unEx e2))
 
 let trans_boolexp ast e1 e2= 
   let binop = bool_ast2tree ast in
-  Ex (BINOP (binop, e1, e2))
+  Ex (BINOP (binop, unEx e1, unEx e2))
 
-let trans_cmpexp ast e1 e2 = 
+let trans_cmpexp ast e1  e2 = 
   let binop = cmp_ast2tree ast in
-  Cx (fun t f ->  T.CJUMP (binop, e1, e2, t, f))
+  Cx (fun t f ->  T.CJUMP (binop, unEx e1, unEx e2, t, f))
 
 let trans_break label = 
   Nx T.(JUMP (NAME label, [label]))

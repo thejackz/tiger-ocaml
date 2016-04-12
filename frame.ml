@@ -61,6 +61,7 @@ module MISP : FRAME = struct
   type register = string
   
   type access = 
+    (* offset from the frame pointer *)
     | In_frame of offset
     | In_reg of Temp.temp
 
@@ -89,6 +90,7 @@ module MISP : FRAME = struct
     loc := !loc + 1; res
 
   let new_frame name escapes  = 
+    loc := 0 ;
     let fs = List.map escapes
       ~f:(fun t -> if t then (In_frame (gen_offset ())) else In_reg (Temp.new_temp ()))
     in

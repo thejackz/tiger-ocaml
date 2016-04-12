@@ -207,14 +207,14 @@ and trans_neg_exp cur_level break_to venv tenv neg_e =
 
 and trans_call_exp cur_level break_to venv tenv fname params = 
   match S.lookup venv fname with
-  | Some (E.FUNC_TYPE (level, name, args, return_ty)) -> 
+  | Some (E.FUNC_TYPE (def_level, name, args, return_ty)) -> 
       (let params_irs = List.fold2_exn params args ~init:[] 
           ~f:(fun acc param arg_ty -> 
             let param_ir, param_ty = trans_exp cur_level break_to venv tenv param in
             match param_ty = arg_ty with
             | false -> failwith "functon call: type mismatch"
             | true  -> param_ir :: acc)
-      in T.trans_funcall level (List.rev params_irs), return_ty)
+      in T.trans_funcall cur_level def_level (List.rev params_irs), return_ty)
   | Some (E.VAR_TYPE _) -> failwith (S.name fname ^ " is not a function")
   | None -> failwith (S.name fname ^ " is undefined")
 
@@ -393,7 +393,7 @@ and trans_vardecl cur_level break_to venv tenv exp_lst vname vtype rhs =
                 | false -> failwith "var type and rhs does not match"))
   | Some _ -> failwith "this should not happend"
 
-let trans_prog ast = 
-  let body, t = trans_exp T.outermost None E.base_venv E.base_tenv ast in
-  T.proc_entry_exit T.outermost body in
-  T.get_result ()
+(*let trans_prog ast = *)
+  (*let body, t = trans_exp T.outermost None E.base_venv E.base_tenv ast in*)
+  (*T.proc_entry_exit T.outermost body in*)
+  (*T.get_result ()*)

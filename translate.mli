@@ -1,4 +1,5 @@
-open Frame.MISP
+open Frame
+open MISP
 open Tree
 
 
@@ -9,7 +10,7 @@ open Tree
 
 type level
 
-type taccess
+type access
 
 type exp
 
@@ -23,9 +24,9 @@ val outermost : level
 
 val new_level : level option -> Temp.label -> bool list -> level
 
-val formals : level -> taccess list
+val formals : level -> access list
 
-val alloc_local : level -> bool -> taccess
+val alloc_local : level -> bool -> access
 
 val unEx : exp -> Tree.exp
 val unNx : exp -> Tree.stm
@@ -48,7 +49,7 @@ val trans_cmpexp : Ast.cmp_exp -> exp -> exp -> exp
 val trans_boolexp : Ast.bool_exp -> exp -> exp -> exp
 val trans_ariths : Ast.arith_exp -> exp -> exp -> exp
 
-val trans_id : taccess -> level -> exp
+val trans_id : access -> level -> exp
 val trans_subscript : exp -> exp -> exp   
 val trans_fieldexp : exp -> Symbol.symbol -> (Symbol.symbol * Datatypes.datatype) list 
                          -> (exp * Datatypes.datatype) option
