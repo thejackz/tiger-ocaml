@@ -17,37 +17,33 @@ let fragments = ref []
 let add_frag frag = 
   fragments := frag :: !fragments
 
+(* Access type define the level and the location (memory or frame) *)
+type unique = unit ref
+
 
 (*Every time a new function is declared or in a new let expression, a new level should be created*)
-type level = {
-  parent : level option;
-  frame  : F.frame ;
-  cmp    : int;
+type level_rec = {
+  parent      : level_rec option;
+  frame       : F.frame ;
+  cmp         : unique ;
 }
-  
-(* Access type define the level and the location (memory or frame) *)
+
+type level = 
+  | Top
+  | Level of level_rec
+
 type access = level * F.access
 
-let level_cmp = ref 0
-
-let inc_levelcmp () = level_cmp := !level_cmp + 1
-let dec_levelcmp () = level_cmp := !level_cmp - 1
-let get_level_cmp () = !level_cmp
-
-
-
-let outermost = {
-  parent   = None;
-  frame    = F.new_frame (Temp.named_label "main") [];
-  cmp      = !level_cmp;
-}
+let outermost = Top
 
 let new_level parent name formals = 
   (*add one bool at the beginning of formals, this is the static links*)
   let new_frame = F.new_frame name (true :: formals) in
-  let levelcmp = get_level_cmp () in
-  inc_levelcmp ();
-  {parent = parent; frame = new_frame; cmp = levelcmp}
+  { 
+    parent        = parent; 
+    frame         = new_frame; 
+    cmp           = ref ();
+  }
 
 
 
@@ -56,10 +52,13 @@ let new_level parent name formals =
  * Note that since the first element of formals is 
  * the static link, so that is discard*)
 let formals level : access list = 
-  let fm_formals = F.formals level.frame in
-  match List.map fm_formals ~f:(fun access -> level, access) with
-  | [] -> failwith "formals should not be empty"
-  | hd :: tl -> tl
+  match level with
+  | Top -> failwith "formals function does not apply to top level"
+  | Level lev ->
+      let fm_formals = F.formals lev.frame in
+      match List.map fm_formals ~f:(fun access -> Level lev, access) with
+      | [] -> failwith "formals should not be empty"
+      | hd :: tl -> tl
 
 
 let alloc_local level escape = 
@@ -144,7 +143,7 @@ let trans_int i =
 let trans_nil () = 
   Ex (T.CONST 0)
 
-let rec trans_id (id_access : access) use_level =
+let rec trans_id id_access use_level =
   let def_level, f_access = id_access in
   match def_level = use_level with
   (* true -> it is in the current frame *)
@@ -257,15 +256,16 @@ let trans_seq ir_lst =
   Nx T.(SEQ (sequence, unNx last))
 
 let trans_funcall call_level def_level arg_irs = 
-  let cal_static_link def_level call_level = 
+  let get_static_link def_level call_level = 
 
   in
   let fname = F.name def_level.frame in
   let args = List.map arg_irs ~f:(fun arg -> unEx arg) in
   match call_level.parent with
+  (* function is call at top level, no static link, could be runtime function *)
   | None -> T.(CALL (NAME fname, args))
   | Some parent_level ->
-      let static_link = cal_static_link def_level call_level in
+      let static_link = get_static_link def_level call_level in
       T.(CALL (NAME fname, static_link :: args))
 
 let trans_arrcreate size init = 
