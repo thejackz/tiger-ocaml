@@ -22,28 +22,20 @@ type unique = unit ref
 
 
 (*Every time a new function is declared or in a new let expression, a new level should be created*)
-type level_rec = {
-  parent      : level_rec option;
-  frame       : F.frame ;
-  cmp         : unique ;
-}
-
 type level = 
   | Top
-  | Level of level_rec
+  | Level of level * F.frame * unique
 
 type access = level * F.access
 
 let outermost = Top
 
+let compare_level l1 l2 = phys_equal l1 l2
+
 let new_level parent name formals = 
   (*add one bool at the beginning of formals, this is the static links*)
   let new_frame = F.new_frame name (true :: formals) in
-  { 
-    parent        = parent; 
-    frame         = new_frame; 
-    cmp           = ref ();
-  }
+  (parent, new_frame, ref ())
 
 
 
@@ -54,15 +46,18 @@ let new_level parent name formals =
 let formals level : access list = 
   match level with
   | Top -> failwith "formals function does not apply to top level"
-  | Level lev ->
-      let fm_formals = F.formals lev.frame in
-      match List.map fm_formals ~f:(fun access -> Level lev, access) with
+  | Level (parent, frame, identity) as lev ->
+      let fm_formals = F.formals frame in
+      match List.map fm_formals ~f:(fun access -> lev, access) with
       | [] -> failwith "formals should not be empty"
       | hd :: tl -> tl
 
 
 let alloc_local level escape = 
-  level, (F.alloc_locals level.frame escape)
+  match level with
+  | Top -> failwith "this is at top level"
+  | Level (parent, frame, identity) ->
+      level, (F.alloc_locals frame escape)
 
 
 type exp = 
@@ -107,10 +102,13 @@ let unCx exp =
   | Nx _ -> failwith "this should not happend"
 
 let get_static_link level = 
-  let formals = F.formals level.frame in
-  match List.hd formals with
-  | None -> failwith "no static link exist, this is a bug"
-  | Some link -> link
+  match level with
+  | Top -> failwith "top level has no static link"
+  | Level (_, frame, _) ->
+      let formals = F.formals frame in
+      match List.hd formals with
+      | None -> failwith "no static link exist, this is a bug"
+      | Some link -> link
 
 let empty = Ex (CONST 0)
 
@@ -151,9 +149,9 @@ let rec trans_id id_access use_level =
   (* false -> it is in the previous frame*)
   | false ->
       let static_link = get_static_link use_level in
-      match use_level.parent with
-      | None -> failwith "variable is undefined, type checker has bug"
-      | Some parent ->
+      match use_level with
+      | Top -> failwith "variable is undefined, type checker has bug"
+      | Level (parent, _, _) ->
           let previous_ir = unEx (trans_id id_access parent) in
           Ex (F.calc_texp previous_ir static_link)
            
@@ -256,16 +254,26 @@ let trans_seq ir_lst =
   Nx T.(SEQ (sequence, unNx last))
 
 let trans_funcall call_level def_level arg_irs = 
-  let get_static_link def_level call_level = 
-
+  let get_static_link level = 
+    match level with
+    | Top -> failwith "top level does not have static link"
+    | Level (_, frame, _) -> List.hd_exn (F.formals frame)
   in
-  let fname = F.name def_level.frame in
+  let get_enclosing_static_link def_level check_level fp_ir = 
+    match compare_level def_level check_level with
+    | true -> 
+        let static_link_access = get_static_link def_level in
+        F.calc_texp fp_ir static_link_access
+    | false -> failwith ""
+  in
   let args = List.map arg_irs ~f:(fun arg -> unEx arg) in
-  match call_level.parent with
+  match call_level with
   (* function is call at top level, no static link, could be runtime function *)
-  | None -> T.(CALL (NAME fname, args))
-  | Some parent_level ->
-      let static_link = get_static_link def_level call_level in
+  | Top -> T.(CALL (NAME fname, args))
+  | Level (parent, frame, identity) ->
+      let fname = F.name frame in
+      let base_ir = T.(TEMP F.fp) in
+      let static_link = get_enclosing_static_link def_level call_level base_ir in
       T.(CALL (NAME fname, static_link :: args))
 
 let trans_arrcreate size init = 
