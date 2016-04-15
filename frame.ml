@@ -136,9 +136,13 @@ module MISP : FRAME = struct
 
   let rv = failwith "unimplemented"
 
+  let runtime_funcs = []
+
 
   let external_call name args = 
-    T.(CALL (NAME (named_label name), args))
+    match List.mem runtime_funcs name with
+    | false -> failwith "Undefined function call"
+    | true  -> T.(CALL (NAME (named_label name), args))
 
 
 
