@@ -3,15 +3,15 @@ TESTTARGET = parsing_test
 
 MAIN = main
 
-#SRCDIR  = src
+SRCDIR  = src
 
 DEFAULT = byte
 
 
-flag =-Is $(TESTDIR) -use-menhir -use-ocamlfind
+flag =-Is $(TESTDIR),$(SRCDIR) -use-menhir -use-ocamlfind
 
 main:
-	corebuild -use-menhir -use-ocamlfind $(MAIN).native
+	corebuild $(flag) $(MAIN).native
 
 
 native:
