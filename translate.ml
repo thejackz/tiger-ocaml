@@ -32,7 +32,7 @@ type access = level * F.access
 
 let outermost = {
   parent = None ;
-  frame  = F.new_frame (Temp.new_label "main") [] ;
+  frame  = F.new_frame (Temp.named_label "main") [] ;
   cmp    = ref () ;
 }
 
@@ -58,7 +58,7 @@ let formals level : access list =
   | None -> []
   | Some parent ->
       let fm_formals = F.formals level.frame in
-      match List.map fm_formals ~f:(fun access -> lev, access) with
+      match List.map fm_formals ~f:(fun access -> level, access) with
       | [] -> failwith "formals should not be empty"
       | hd :: tl -> tl
 
@@ -156,15 +156,13 @@ let rec trans_id id_access use_level =
     | true -> Ex (F.calc_texp fp_ir f_access)
     (* false -> it is in the previous frame*)
     | false ->
-        let static_link = get_static_link use_level in
+        let sl_offset = get_static_link use_level in
         match use_level.parent with
         | None -> failwith "variable is undefined, type checker has bug"
-        | Some parent_level ->
-            let previous_ir = unEx (trans_id id_access parent) in
-            helper def_level parent_level previous_ir
-  in helper def_level use_level (F.TEMP F.fp)
-
-           
+        | Some parent ->
+            let prev_frame_ir = F.calc_texp fp_ir sl_offset in
+            helper def_level parent prev_frame_ir
+  in helper def_level use_level (T.TEMP F.fp)
 
 (* Subscript: a[3] -> base (a) + 3 * wordsize *)
 let trans_subscript lv_ir index_ir = 
@@ -264,23 +262,27 @@ let trans_seq ir_lst =
   Nx T.(SEQ (sequence, unNx last))
 
 let trans_funcall call_level def_level arg_irs = 
-  let get_static_link level = List.hd_exn (F.formals level.frame) in
-  let get_enclosing_static_link def_level check_level fp_ir = 
+  let rec get_enclosing_static_link check_level fp_ir = 
+    let sl_offset = get_static_link check_level in
     match compare_level def_level check_level with
     | true -> 
-        let static_link_access = get_static_link def_level in
-        F.calc_texp fp_ir static_link_access
-    | false -> failwith ""
+        F.calc_texp fp_ir sl_offset
+    | false -> 
+        match check_level.parent with
+        | None -> failwith "static link not found, there's bug in type checker"
+        | Some parent ->
+            let prev_frame_ir = F.calc_texp fp_ir sl_offset in
+            get_enclosing_static_link parent prev_frame_ir
   in
   let args = List.map arg_irs ~f:(fun arg -> unEx arg) in
-  match call_level with
+  let fname = F.name call_level.frame in
+  match call_level.parent with
   (* function is call at top level, no static link, could be runtime function *)
-  | Top _ -> T.(CALL (NAME fname, args))
-  | Level (parent, frame, identity) ->
-      let fname = F.name frame in
-      let base_ir = T.(TEMP F.fp) in
-      let static_link = get_enclosing_static_link def_level call_level base_ir in
-      T.(CALL (NAME fname, static_link :: args))
+  | None -> T.(CALL (NAME fname, args))
+  | Some parent ->
+      let cur_frame_ir = T.(TEMP F.fp) in
+      let enclosing_frame = get_enclosing_static_link call_level cur_frame_ir in
+      T.(CALL (NAME fname, enclosing_frame :: args))
 
 let trans_arrcreate size init = 
   T.(CALL (NAME (F.init_array), [size; init]))
