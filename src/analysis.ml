@@ -371,7 +371,7 @@ and trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body
           | _ -> failwith "param_ref should not have other type other than NAME"))
   | _ -> failwith "should not happend");
 
-  (* Type check is done at this point, proc_entry_exit will generate assem for function *)
+  (* Type check is done at this point, proc_entry_exit will generate assem for functions *)
   T.proc_entry_exit new_level body_ir;
   (venv, tenv, exp_lst)
 

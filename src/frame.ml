@@ -145,5 +145,8 @@ module MISP : FRAME = struct
     | true  -> T.(CALL (NAME (named_label name), args))
 
 
+  let proc_entry_exit1 frame body = body
+
+
 
 end
