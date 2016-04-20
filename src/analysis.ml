@@ -25,8 +25,6 @@ let actual_type_lst type_lst =
   List.map type_lst
     ~f:(fun ty -> actual_type ty)
 
-
-
 let rec trans_exp (cur_level : T.level) (break_to : Temp.label option)(venv : Env.env_type Symbol.table)
                   (tenv : Env.ty Symbol.table) (ast : Ast.exp) : expty = 
   match ast with 
@@ -49,8 +47,6 @@ let rec trans_exp (cur_level : T.level) (break_to : Temp.label option)(venv : En
   | ArithExp arith_exp                  -> trans_ariths cur_level break_to venv tenv arith_exp
   | BoolExp bool_exp                    -> trans_boolexp cur_level break_to venv tenv bool_exp
   | CmpExp cmp_exp                      -> trans_cmpexp cur_level break_to venv tenv cmp_exp
-
-
 
 and trans_break break_to = 
   match break_to with
@@ -231,7 +227,6 @@ and trans_arr_create cur_level break_to venv tenv type_id size init =
                                 get " ^ D.type_to_string s_t)
   | None, _ -> failwith ((S.name type_id ) ^ " is undefined")
 
-
 and trans_lvalue cur_level break_to venv tenv lv : expty = 
   match lv with
   | Id id -> 
@@ -332,12 +327,18 @@ and trans_typedecl cur_level break_to venv tenv exp_lst id ty =
   (venv, new_tenv, exp_lst)
 
 and trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body = 
-  let calculate_escapes params : bool list = failwith "unimplemented" in
+
+  (* All parameters escape*)
+  let calculate_escapes params : bool list = List.(init (length params) ~f:(fun x -> true)) in
+
+  (* first verify that all incoming arguments are already defined, return id * type tuple list *)
   let param_idtys = List.map params
     ~f:(fun (id, type_id) -> match S.lookup tenv type_id with
         | None -> failwith (Printf.sprintf "%s is undefined" (S.name type_id)) 
         | Some t -> (id, t))
   in 
+
+  (* add all id * type pairs to the current type environment *)
   let tenv_params = List.fold_left param_idtys ~init:tenv
     ~f:(fun acc (id, t) -> S.add acc id t)
   in
@@ -346,7 +347,7 @@ and trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body
   let new_level = T.new_level (Some cur_level) fname_label level_formals in
   let body_ir, body_type = trans_exp new_level break_to venv tenv_params body in
   let params = List.map param_idtys ~f:(fun (_, t) -> t ) in
-  match S.lookup venv fname with
+  (match S.lookup venv fname with
   | None -> failwith "function does not exist, should never happend"
   | Some (FUNC_TYPE (level, flabel, param_refs, NAME (id, ref_))) ->
       (match List.(length param_refs = length params) with
@@ -367,10 +368,12 @@ and trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body
             (match !ref_ with
             | Some _ -> failwith "this should not happend"
             | None  -> ref_ := Some param)
-          | _ -> failwith "param_ref should not have other type other than NAME"));
-        (venv, tenv, exp_lst)
-  | _ -> failwith "should not happend"
+          | _ -> failwith "param_ref should not have other type other than NAME"))
+  | _ -> failwith "should not happend");
 
+  (* Type check is done at this point, proc_entry_exit will generate assem for function *)
+  T.proc_entry_exit new_level body_ir;
+  (venv, tenv, exp_lst)
 
 and trans_vardecl cur_level break_to venv tenv exp_lst vname vtype rhs = 
   let lhs_ir, _ = trans_lvalue cur_level break_to venv tenv (Id vname) in

@@ -17,7 +17,6 @@ let fragments = ref []
 let add_frag frag = 
   fragments := frag :: !fragments
 
-(* Access type define the level and the location (memory or frame) *)
 type unique = unit ref
 
 
@@ -28,6 +27,7 @@ type level = {
   cmp       : unique       ;
 }
 
+(* Access type define the level and the location (memory or frame) *)
 type access = level * F.access
 
 let outermost = {
@@ -291,7 +291,7 @@ let trans_ariths ast e1 e2 =
   let binop = arith_ast2tree ast in
   Ex (BINOP (binop, unEx e1, unEx e2))
 
-let trans_boolexp ast e1 e2= 
+let trans_boolexp ast e1 e2 = 
   let binop = bool_ast2tree ast in
   Ex (BINOP (binop, unEx e1, unEx e2))
 
@@ -313,6 +313,6 @@ let trans_letexp init_exps body =
   Ex T.(ESEQ (seq inits, unEx body))
 
   
-let proc_entry_exit (level : level) (body : exp) = ()
+let proc_entry_exit level body = ()
 
 let get_fragments () = !fragments
