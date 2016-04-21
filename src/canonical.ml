@@ -117,3 +117,32 @@ let linearize stm =
     | _ -> stm :: l
   in linear (do_stm stm) []
 
+(* --------------------------------------------------------------------------------------------- *)
+
+let basic_block stms = 
+  let done = Temp.new_label () in 
+  let rec blocks stms blist = 
+    
+    let rec next stms this_block = 
+      match stms with
+      | JUMP _ as hd :: rest -> end_block rest (hd :: this_block)
+      | CJUMP _ as hd :: rest -> end_block rest (hd :: this_block)
+      | (LABEL lab) :: _ -> next ((JUMP (NAME lab, [lab])) :: stms) this_block
+      | hd :: rest -> next rest (hd :: this_block)
+      | [] -> next [JUMP (NAME done, [done])] this_block
+    in
+
+    and end_block stms this_block = 
+      blocks stms ((List.rev this_block) :: blist)
+    in
+    
+    match stms with
+    | LABEL _ as hd :: rest -> next rest [hd]
+    | [] -> List.rev blist
+    | _ ->  blocks ((LABEL (Temp.new_label ())) :: stms) blist
+  in blocks stms, done
+
+  
+
+  (* --------------------------------------------------------------------------------------------- *)
+
