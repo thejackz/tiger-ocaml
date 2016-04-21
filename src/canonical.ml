@@ -65,7 +65,10 @@ and do_exp exp =
   match exp with
   | CONST _             
   | NAME _              
-  | TEMP _              -> EXP (CONST 0), exp
+  | TEMP _ -> 
+      reorder_exp [] (function
+                      | [] -> exp
+                      | _  -> fail ())
   | BINOP (op, e1, e2)  -> 
       reorder_exp [e1; e2] (function 
                             | [e1; e2] -> BINOP (op, e1, e2)
