@@ -119,8 +119,8 @@ let linearize stm =
 
 (* --------------------------------------------------------------------------------------------- *)
 
-let basic_block stms = 
-  let done = Temp.new_label () in 
+let basic_blocks stms = 
+  let done_lab = Temp.new_label () in 
   let rec blocks stms blist = 
     
     let rec next stms this_block = 
@@ -129,8 +129,7 @@ let basic_block stms =
       | CJUMP _ as hd :: rest -> end_block rest (hd :: this_block)
       | (LABEL lab) :: _ -> next ((JUMP (NAME lab, [lab])) :: stms) this_block
       | hd :: rest -> next rest (hd :: this_block)
-      | [] -> next [JUMP (NAME done, [done])] this_block
-    in
+      | [] -> next [JUMP (NAME done_lab, [done_lab])] this_block
 
     and end_block stms this_block = 
       blocks stms ((List.rev this_block) :: blist)
@@ -140,9 +139,67 @@ let basic_block stms =
     | LABEL _ as hd :: rest -> next rest [hd]
     | [] -> List.rev blist
     | _ ->  blocks ((LABEL (Temp.new_label ())) :: stms) blist
-  in blocks stms, done
+  in blocks stms [], done_lab
 
-  
+(* --------------------------------------------------------------------------------------------- *)
 
-  (* --------------------------------------------------------------------------------------------- *)
+let enter_block block table = 
+  match block with
+  | LABEL sym :: _ -> Symbol.add table sym block
+  | _ -> table
 
+let rec split_last = function
+  | [x] -> ([], x)
+  | hd :: tl -> 
+      let front, last = split_last tl in
+      hd :: front, last
+  | [] -> failwith "impossible, basic block should not be empty block"
+
+let get_successor table lab = 
+  match Symbol.lookup table lab with
+  | Some ((_ :: _) as sucessor) -> Some sucessor 
+  | _ -> None
+
+let rec trace table block rest_blocks =
+  match block with
+  | LABEL sym :: _ ->
+      
+      (* update the table, this marks that lab has been processed *)
+      let new_table = Symbol.add table sym [] in
+
+      (match split_last block with
+
+      | front, JUMP (NAME lab, _) ->
+          (match get_successor table lab with
+          | Some successor -> front @ trace new_table successor rest_blocks 
+          | None -> block @ gen_next new_table rest_blocks)
+
+      | front, CJUMP (op, x, y, t, f) ->
+          (match get_successor table t, get_successor table f with
+          (* always choose the false label as the next jump point if there is one *)
+          | _, Some successor -> front @ trace new_table successor rest_blocks
+          | Some successor, _ -> 
+              front @ ((CJUMP (T.rev_relop op, x, y, f, t)) :: (trace new_table successor rest_blocks))
+          | _ -> 
+              let f' = Temp.new_label () in
+              front @ [CJUMP (op, x, y, t, f'); LABEL f'; JUMP (NAME f, [f])] 
+                @ gen_next new_table rest_blocks)
+      
+      | front, JUMP _ -> front @ gen_next new_table rest_blocks
+          
+      | _ -> failwith "should not happend")
+
+  | _ -> failwith "this should not happend"
+
+and gen_next table blocks = 
+  match blocks with
+  | (LABEL l :: _) as block :: rest ->
+      (match Symbol.lookup table l with
+      | Some (_ :: _) -> trace table block rest   
+      | _ -> gen_next table rest)
+  | [] -> []
+  | _ -> failwith "this is impossible, every block starts with a label"
+
+
+let trace_schedule (blocks : Tree.stm list list) done_lab = 
+  (gen_next (List.fold_right blocks ~init:Symbol.empty ~f:enter_block) blocks) @ [LABEL done_lab]

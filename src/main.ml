@@ -12,7 +12,8 @@ open Symbol
 open Frame
 open Temp
 open Tree
-(*open Translate*)
+open Translate
+open Canonical
 
 
 let lexer s = 
