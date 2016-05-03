@@ -7,10 +7,10 @@ SRCDIR  = src
 
 DEFAULT = byte
 
-BUILD = ocamlbuild
+BUILD = corebuild
 
 
-flag =-Is $(TESTDIR),$(SRCDIR) -use-menhir -use-ocamlfind -package core
+flag =-Is $(TESTDIR),$(SRCDIR) -use-menhir -use-ocamlfind
 
 main:
 	$(BUILD) $(flag) $(MAIN).native
