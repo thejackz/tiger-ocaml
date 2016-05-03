@@ -7,21 +7,23 @@ SRCDIR  = src
 
 DEFAULT = byte
 
+BUILD = ocamlbuild
 
-flag =-Is $(TESTDIR),$(SRCDIR) -use-menhir -use-ocamlfind
+
+flag =-Is $(TESTDIR),$(SRCDIR) -use-menhir -use-ocamlfind -package core
 
 main:
-	corebuild $(flag) $(MAIN).native
+	$(BUILD) $(flag) $(MAIN).native
 
 
 native:
-	corebuild $(flag) $(TESTDIR)/$(TARGET).native
+	$(BUILD) $(flag) $(TESTDIR)/$(TARGET).native
 
 byte:
-	corebuild $(flag) $(SRCDIR),$(TESTDIR) $(TESTDIR)/$(TARGET).byte
+	$(BUILD) $(flag) $(SRCDIR),$(TESTDIR) $(TESTDIR)/$(TARGET).byte
 
 cleanall:
-	corebuild -clean; rm *.native; rm *.byte
+	$(BUILD) -clean; rm *.native; rm *.byte
 
 clean:
 	rm *.native; rm *.byte
