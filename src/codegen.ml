@@ -23,6 +23,9 @@ module MispCodegen : CODEGEN = struct
   let rec munch_stm stm : unit = 
     match stm with
     | SEQ (s1, s2) -> munch_stm s1; munch_stm s2
+
+(*     | EXP (CALL (NAME lab, args)) ->
+        OPER ((P.sprintf "jal %s" (Symbol.name lab))) *)
     | EXP e -> munch_exp e; ()
 
 
@@ -65,6 +68,8 @@ module MispCodegen : CODEGEN = struct
 
 
 
+
+
 let trans_binop op ?im ?two_reg = 
   match im = two_reg with
   | true -> failwith "impossible"
@@ -74,22 +79,22 @@ let trans_binop op ?im ?two_reg =
       | MINUS, true, false -> "subi"
       | PLUS, false, true -> "add"
       | MINUS, false, true -> "sub"
-      | PLUS, _, _ 
-      | MINUS, _, _ -> failwith "impossible"
       | MUL, _, true -> "mul"
       | DIV, _, true -> "div"
-      | MUL, _, _
-      | DIV, _, _ -> failwith "impossible"
       | AND, true, false -> "addi"
       | AND, false, true -> "and"
-      | AND, _, _ -> failwith "impossible"
       | OR, true, false -> "ori"
       | OR, false, true -> "or"
-      | OR, _, _ -> failwith "impossible"
       | LSHIFT, _, _ -> "sll"
       | RSHIFT, _, _ -> "srl"
       | ARSHIFT, _, _ -> "srav"
       | XOR, _, _, -> "xor"
+      | OR, _, _  
+      | AND, _, _ 
+      | MUL, _, _
+      | DIV, _, _ 
+      | PLUS, _, _ 
+      | MINUS, _, _ -> failwith "impossible"
 
 
     
@@ -130,6 +135,17 @@ let trans_binop op ?im ?two_reg =
         result (fun r -> OPER ((P.sprintf "%s `d0, `s1, `s2" oper),
                                [r], [munch_exp e1; munch_exp e2], None)
                           |> emit)
+
+    | TEMP t -> t
+    | NAME name ->
+        result (fun r -> OPER ((P.sprintf "la `d0, %s" (Symbol.name name)),
+                                [r], [], None)
+                          |> emit)
+
+    | CALL (e, es) ->
+
+
+
 
 
 
