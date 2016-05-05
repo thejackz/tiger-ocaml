@@ -19,13 +19,37 @@ module MispCodegen : CODEGEN = struct
 
   let codegen = failwith ""
 
+  let trans_binop ?im ?two_reg op = 
+    match op, im, two_reg with
+    | PLUS, Some true, Some false -> "addi"
+    | MINUS, Some true, Some false -> "subi"
+    | PLUS, Some false, Some true -> "add"
+    | MINUS, Some false, Some true -> "sub"
+    | MUL, _, Some true -> "mul"
+    | DIV, _, Some true -> "div"
+    | AND, Some true, Some false -> "addi"
+    | AND, Some false, Some true -> "and"
+    | OR, Some true, Some false -> "ori"
+    | OR, Some false, Some true -> "or"
+    | LSHIFT, _, _ -> "sll"
+    | RSHIFT, _, _ -> "srl"
+    | ARSHIFT, _, _ -> "srav"
+    | XOR, _, _ -> "xor"
+    | OR, _, _  
+    | AND, _, _ 
+    | MUL, _, _
+    | DIV, _, _ 
+    | PLUS, _, _ 
+    | MINUS, _, _ -> failwith "impossible"
+
 
   let rec munch_stm stm : unit = 
     match stm with
     | SEQ (s1, s2) -> munch_stm s1; munch_stm s2
 
-(*     | EXP (CALL (NAME lab, args)) ->
-        OPER ((P.sprintf "jal %s" (Symbol.name lab))) *)
+     | EXP (CALL (NAME lab, args)) ->
+        OPER ((P.sprintf "jal %s" (Symbol.name lab))) 
+
     | EXP e -> munch_exp e; ()
 
 
@@ -64,40 +88,7 @@ module MispCodegen : CODEGEN = struct
 
     (* Unconditional jump *)
     | JUMP (NAME lab, _) -> OPER(P.sprintf "b lab", [], [], None) |> emit
-    | JUMP (e, _) -> OPER(P.sprintf "jr `r0", [], [munch_stm e], None) |> emit
-
-
-
-
-
-let trans_binop op ?im ?two_reg = 
-  match im = two_reg with
-  | true -> failwith "impossible"
-  | false ->
-      match op, im, two_reg with
-      | PLUS, true, false -> "addi"
-      | MINUS, true, false -> "subi"
-      | PLUS, false, true -> "add"
-      | MINUS, false, true -> "sub"
-      | MUL, _, true -> "mul"
-      | DIV, _, true -> "div"
-      | AND, true, false -> "addi"
-      | AND, false, true -> "and"
-      | OR, true, false -> "ori"
-      | OR, false, true -> "or"
-      | LSHIFT, _, _ -> "sll"
-      | RSHIFT, _, _ -> "srl"
-      | ARSHIFT, _, _ -> "srav"
-      | XOR, _, _, -> "xor"
-      | OR, _, _  
-      | AND, _, _ 
-      | MUL, _, _
-      | DIV, _, _ 
-      | PLUS, _, _ 
-      | MINUS, _, _ -> failwith "impossible"
-
-
-    
+    | JUMP (e, _) -> OPER(P.sprintf "jr `r0", [], [munch_exp e], None) |> emit
 
 
   and munch_exp exp : Temp.temp =
@@ -114,7 +105,7 @@ let trans_binop op ?im ?two_reg =
                           |> emit)
 
     | MEM e ->
-        result (fun r -> OPER ((P.sprintf "lw `d0, 0(`s0)"))
+        result (fun r -> OPER ((P.sprintf "lw `d0, 0(`s0)"),
                                 [r], [munch_exp e], None)
                               |> emit)
 
@@ -125,13 +116,13 @@ let trans_binop op ?im ?two_reg =
 
     | BINOP (op, e, CONST i) 
     | BINOP (op, CONST i, e) ->
-        let oper = trans_binop oper ?im=true in
+        let oper = trans_binop op ~im:true ~two_reg:false in
         result (fun r -> OPER ((P.sprintf "%s `d0, %d(`s0)" oper i),
                                 [r], [munch_exp e], None)
                           |> emit)
 
     | BINOP (op, e1, e2) ->
-        let oper = trans_binop oper ?two_reg=true in
+        let oper = trans_binop op ~two_reg:true ~im:false in
         result (fun r -> OPER ((P.sprintf "%s `d0, `s1, `s2" oper),
                                [r], [munch_exp e1; munch_exp e2], None)
                           |> emit)
@@ -142,7 +133,6 @@ let trans_binop op ?im ?two_reg =
                                 [r], [], None)
                           |> emit)
 
-    | CALL (e, es) ->
 
 
 
