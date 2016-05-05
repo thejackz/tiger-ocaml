@@ -46,6 +46,8 @@ module type FRAME = sig
 
   val external_call : string -> Tree.exp list -> Tree.exp
 
+  val get_reg: register table -> register -> Temp.temp
+
 end
 
 module MISP : FRAME = struct

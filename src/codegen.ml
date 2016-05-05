@@ -48,7 +48,9 @@ module MispCodegen : CODEGEN = struct
     | SEQ (s1, s2) -> munch_stm s1; munch_stm s2
 
      | EXP (CALL (NAME lab, args)) ->
-        OPER ((P.sprintf "jal %s" (Symbol.name lab))) 
+        OPER ((P.sprintf "jal %s" (Symbol.name lab)),
+              []
+          ) 
 
     | EXP e -> munch_exp e; ()
 
@@ -132,6 +134,32 @@ module MispCodegen : CODEGEN = struct
         result (fun r -> OPER ((P.sprintf "la `d0, %s" (Symbol.name name)),
                                 [r], [], None)
                           |> emit)
+
+
+
+  and munch_args i args col = 
+    match args with
+    | [] -> List.rev col
+    | hd :: tl ->
+        match (i >=0 and i <= 3) with
+        | true -> 
+            let reg = F.get_reg ("$a" ^ (string_of_int i)) in
+            (match hd with
+            | CONST const -> 
+                OPER ((P.sprintf "li $a%d, %d" i const),
+                       [reg], [], None)
+                |> emit;
+                munch_args (i + 1) tl (reg :: col)
+            | _ ->
+                OPER ((P.sprintf "move $a%d, `s0" i),
+                      [reg],
+                      [munch_exp e], None)
+                |> emit;
+                munch_args (i + 1) tl (reg :: col))
+        | false ->
+            
+
+
 
 
 
