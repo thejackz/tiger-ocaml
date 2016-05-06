@@ -15,7 +15,7 @@ open Tree
 open Translate
 open Canonical
 open Assem
-open Codegen
+(*open Codegen*)
 
 
 let lexer s = 

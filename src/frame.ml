@@ -20,6 +20,8 @@ module type FRAME = sig
 
   type frag
 
+  type reg_table
+
   val word_size : int
 
   val new_frame : Temp.label -> bool list -> frame
@@ -46,11 +48,12 @@ module type FRAME = sig
 
   val external_call : string -> Tree.exp list -> Tree.exp
 
-  val get_reg: register table -> register -> Temp.temp
+  val get_reg: reg_table -> register -> Temp.temp
 
 end
 
 module MISP : FRAME = struct
+
   
   module T = Tree
 
@@ -61,7 +64,17 @@ module MISP : FRAME = struct
   type offset = int
 
   type register = string
+
   
+  module Reg_map = Map.Make(
+    struct
+      type t = string with sexp, compare
+    end)
+
+  type reg_table = Temp.temp Reg_map.t
+
+  let get_reg table reg = failwith ""
+
   type access = 
     (* offset from the frame pointer *)
     | In_frame of offset
