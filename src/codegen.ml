@@ -17,7 +17,7 @@ module MispCodegen : CODEGEN = struct
 
   let emit instr = instr_list := instr :: !instr_list
 
-  let codegen = failwith ""
+  let codegen frame stm = failwith ""
 
   let trans_binop ?im ?two_reg op = 
     match op, im, two_reg with

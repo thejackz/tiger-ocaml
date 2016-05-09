@@ -313,6 +313,16 @@ let trans_letexp init_exps body =
   Ex T.(ESEQ (seq inits, unEx body))
 
   
-let proc_entry_exit level body = ()
+let proc_entry_exit ~is_procedure level body = 
+  let fm = level.frame in
+  let body_ir = match is_procedure with
+    | true -> T.(SEQ (unNx body, MOVE (TEMP F.rv, CONST 0)))
+    | false -> T.(MOVE (TEMP F.rv, unEx body))
+  in 
+  let stmt = F.proc_entry_exit1 fm body in 
+  fragments := F.Proc (stmt, fm) :: !fragments
+
+
+
 
 let get_fragments () = !fragments

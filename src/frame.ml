@@ -135,6 +135,28 @@ module MISP : FRAME = struct
   
   ]
 
+  let sepecial_regs = [
+    "zeor"; "gp"; "sp"; "fp"; "ra"; "v0"; "v1"
+  ]
+
+
+  let callee_saved = [
+    "s0"; "s1"; "s2"; "s3"; "s4"; "s5"; "s6"; "s7";
+  ]
+
+  let caller_saved = [
+    "t0"; "t1"; "t2"; "t3"; "t4"; "t5"; "t6"; "t7"; "t8"; "t9";
+  ]
+
+  let arg_regs = ["a0"; "a1"; "a2"; "a3"]
+
+  let is_caller_saved reg = 
+    List.mem caller_saved reg 
+
+  let is_callee_saved reg = 
+    List.mem callee_saved reg
+                  
+
 
   (**
    *  this function takes an tree.exp and frame.access
@@ -160,7 +182,33 @@ module MISP : FRAME = struct
     | true  -> T.(CALL (NAME (named_label name), args))
 
 
-  let proc_entry_exit1 frame body = body
+  let proc_entry_exit1 frame body_stm =
+
+    let move_extra_regs regs frames = 
+      let length = List.length regs in
+      match length <= 4 with
+      | true -> regs, frames
+      | false -> 
+          first_four = List.slice 0 4 regs in 
+          rest = List.slice 4 length in 
+          first_four, rest @ frames
+    in 
+    let formal_args = formals frame.formals in
+
+    (* split formals based on whether it is in frame or reg *)
+    let in_regs, in_frames = List.partition_map formal_args 
+      ~f(fun arg -> match arg with
+          | In_reg _ -> `Fst arg 
+          | In_frame _ -> `Snd arg)
+    in
+
+    (* since mips only has four input register, in_regs cannot be bigger than 4, move the rest into in_frams*)
+    in_regs, in_frames = move_extra_regs in_regs in_frames in
+    let formal_length = List.length formal_args in
+    match formal_length <= 1 with
+    | true -> body_stm
+    | false ->
+        T.(SEQ (List.mapi view_shift formal_args |> T.seq, stm))
 
 
 
