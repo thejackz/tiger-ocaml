@@ -182,28 +182,21 @@ module MISP : FRAME = struct
     | true  -> T.(CALL (NAME (named_label name), args))
 
 
-  let proc_entry_exit1 frame body_stm =
+  let proc_entry_exit1 (frame : frame) body_stm =
 
-    let move_extra_regs regs frames = 
-      let length = List.length regs in
-      match length <= 4 with
-      | true -> regs, frames
-      | false -> 
-          first_four = List.slice 0 4 regs in 
-          rest = List.slice 4 length in 
-          first_four, rest @ frames
-    in 
-    let formal_args = formals frame.formals in
+    let view_shift index formals = 
+
+    in
+
+    let formal_args = formals frame in
 
     (* split formals based on whether it is in frame or reg *)
     let in_regs, in_frames = List.partition_map formal_args 
-      ~f(fun arg -> match arg with
+      ~f:(fun arg -> match arg with
           | In_reg _ -> `Fst arg 
           | In_frame _ -> `Snd arg)
     in
 
-    (* since mips only has four input register, in_regs cannot be bigger than 4, move the rest into in_frams*)
-    in_regs, in_frames = move_extra_regs in_regs in_frames in
     let formal_length = List.length formal_args in
     match formal_length <= 1 with
     | true -> body_stm
