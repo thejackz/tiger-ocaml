@@ -74,7 +74,7 @@ exp:
   | WHILE e1 = exp DO e2 = exp 
                     { Whileexp (e1, e2) }
   | FOR i = ID COLONEQ e0 = exp TO e1 = exp DO e2 = exp 
-                    { Forexp (make_sym i, e0, e1, e2) }
+                    { Forexp (make_sym i, ref true, e0, e1, e2) }
   | LET decls = decl_list IN es = exp_seq END
                     { Letexp (decls, es)}
   | ae = arith_exp  { ArithExp ae }
@@ -110,9 +110,9 @@ decl_list:
 
 decl:
   | TYPE i = ID EQ t = ty         { Type_decl  (make_sym i, t) }
-  | VAR i = ID COLONEQ e = exp    { Var_decl (make_sym i, None, e) }
+  | VAR i = ID COLONEQ e = exp    { Var_decl (make_sym i, None, ref true, e) }
   | VAR i = ID COLON tid = ID COLONEQ e = exp
-                                  { Var_decl (make_sym i, Some (make_sym tid), e) }
+                                  { Var_decl (make_sym i, Some (make_sym tid), ref true, e) }
   | FUNCTION i = ID LPAREN fd = field_decl_list RPAREN EQ e = exp
                                   { Func_decl (make_sym i, fd, None, e) }
   | FUNCTION i = ID LPAREN fd = field_decl_list RPAREN COLON tid = ID EQ e = exp
@@ -128,7 +128,7 @@ field_decl_list:
   | fl = separated_list(COMMA, field_decl)   { fl }
 
 field_decl:
-  | i = ID COLON tid = ID  { (make_sym i, make_sym tid) }
+  | i = ID COLON tid = ID  { (make_sym i, make_sym tid, ref true) }
 
 
 arith_exp:

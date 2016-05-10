@@ -25,7 +25,7 @@ type exp =
   | Ifthenelse      of exp * exp * exp 
   | Ifthen          of exp * exp 
   | Whileexp        of exp * exp
-  | Forexp          of id  * exp * exp * exp 
+  | Forexp          of id * bool ref * exp * exp * exp 
   | Letexp          of decl list * exp list
   | ArithExp        of arith_exp 
   | BoolExp         of bool_exp 
@@ -35,13 +35,13 @@ type exp =
 and decl = 
   | Type_decl of type_id * ty
   | Func_decl of id * (field_decl list) * return_ty option * exp
-  | Var_decl  of id * (type_id option)  * exp
+  | Var_decl  of id * (type_id option) * bool ref  * exp
   
 and id              = Symbol.symbol
 and type_id         = Symbol.symbol
 and return_ty       = type_id 
 and array_type      = type_id
-and field_decl      = id * type_id
+and field_decl      = id * type_id * bool ref
 and field_create    = id * exp
 
 and ty = 

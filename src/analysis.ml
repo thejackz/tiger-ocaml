@@ -28,25 +28,25 @@ let actual_type_lst type_lst =
 let rec trans_exp (cur_level : T.level) (break_to : Temp.label option)(venv : Env.env_type Symbol.table)
                   (tenv : Env.ty Symbol.table) (ast : Ast.exp) : expty = 
   match ast with 
-  | Nil                                 -> T.trans_nil (), D.NIL
-  | Int i                               -> T.trans_int i, D.INT
-  | String s                            -> T.trans_string s, D.STRING
-  | Break                               -> trans_break break_to
-  | Lvalue lv                           -> trans_lvalue cur_level break_to venv tenv lv
-  | Exp_seq exp_seq                     -> trans_exp_seq cur_level break_to venv tenv exp_seq
-  | Negation_exp e                      -> trans_neg_exp cur_level break_to venv tenv e
-  | Call_exp (fname, params)            -> trans_call_exp cur_level break_to venv tenv fname params 
-  | Arr_create (type_id, size, init)    -> trans_arr_create cur_level break_to venv tenv type_id size init
-  | Rec_create (rec_type, field_lst)    -> trans_rec_create cur_level break_to venv tenv rec_type field_lst
-  | Assignment (lhs, rhs_exp)           -> trans_assignment cur_level break_to venv tenv lhs rhs_exp
-  | Ifthenelse (test, then_e, else_e)   -> trans_ifthenelse cur_level break_to venv tenv test then_e else_e
-  | Ifthen (test, then_e)               -> trans_ifthen cur_level break_to venv tenv test then_e
-  | Whileexp (cond, do_exp)             -> trans_whileexp cur_level break_to venv tenv cond do_exp
-  | Forexp (id, first, last, do_exp)    -> trans_forexp cur_level break_to venv tenv id first last do_exp
-  | Letexp (decls, body)                -> trans_letexp cur_level break_to venv tenv decls body
-  | ArithExp arith_exp                  -> trans_ariths cur_level break_to venv tenv arith_exp
-  | BoolExp bool_exp                    -> trans_boolexp cur_level break_to venv tenv bool_exp
-  | CmpExp cmp_exp                      -> trans_cmpexp cur_level break_to venv tenv cmp_exp
+  | Nil                                         -> T.trans_nil (), D.NIL
+  | Int i                                       -> T.trans_int i, D.INT
+  | String s                                    -> T.trans_string s, D.STRING
+  | Break                                       -> trans_break break_to
+  | Lvalue lv                                   -> trans_lvalue cur_level break_to venv tenv lv
+  | Exp_seq exp_seq                             -> trans_exp_seq cur_level break_to venv tenv exp_seq
+  | Negation_exp e                              -> trans_neg_exp cur_level break_to venv tenv e
+  | Call_exp (fname, params)                    -> trans_call_exp cur_level break_to venv tenv fname params 
+  | Arr_create (type_id, size, init)            -> trans_arr_create cur_level break_to venv tenv type_id size init
+  | Rec_create (rec_type, field_lst)            -> trans_rec_create cur_level break_to venv tenv rec_type field_lst
+  | Assignment (lhs, rhs_exp)                   -> trans_assignment cur_level break_to venv tenv lhs rhs_exp
+  | Ifthenelse (test, then_e, else_e)           -> trans_ifthenelse cur_level break_to venv tenv test then_e else_e
+  | Ifthen (test, then_e)                       -> trans_ifthen cur_level break_to venv tenv test then_e
+  | Whileexp (cond, do_exp)                     -> trans_whileexp cur_level break_to venv tenv cond do_exp
+  | Forexp (id, escape, first, last, do_exp)    -> trans_forexp cur_level break_to venv tenv id first last do_exp
+  | Letexp (decls, body)                        -> trans_letexp cur_level break_to venv tenv decls body
+  | ArithExp arith_exp                          -> trans_ariths cur_level break_to venv tenv arith_exp
+  | BoolExp bool_exp                            -> trans_boolexp cur_level break_to venv tenv bool_exp
+  | CmpExp cmp_exp                              -> trans_cmpexp cur_level break_to venv tenv cmp_exp
 
 and trans_break break_to = 
   match break_to with
@@ -114,7 +114,7 @@ and trans_ariths cur_level break_to venv tenv arith_exp =
 and trans_forexp cur_level break_to venv tenv id first last body_exp = 
   let for_to_while id first last do_exp =
     let limit = Symbol.symbol_of_string "limit" in
-    Letexp ([Var_decl (id, None, first); Var_decl (limit, None, last)],
+    Letexp ([Var_decl (id, None, ref true, first); Var_decl (limit, None, ref true, last)],
              [Whileexp (CmpExp (Lt (Lvalue (Id id), Lvalue (Id limit))), 
                        Exp_seq [do_exp; Assignment ((Id id), (ArithExp (Add (Lvalue (Id id), Int 1))))])])
   in
@@ -268,7 +268,7 @@ and process_header cur_level break_to venv tenv decls =
     match decl with
     | Type_decl (id, ty) -> (venv, S.add tenv id (D.NAME (id, ref None)))
     | Func_decl (fname, params, return, body) ->
-        (let param_refs = List.map params ~f:(fun (id, _) -> D.NAME (id, ref None)) in
+        (let param_refs = List.map params ~f:(fun (id, _, _) -> D.NAME (id, ref None)) in
         let flabel = Temp.new_label () in
         let return_ref = match return with
         | Some t -> D.NAME (t, ref None) 
@@ -277,7 +277,7 @@ and process_header cur_level break_to venv tenv decls =
             D.NAME (dummy_return, ref None)
         in
         (S.add venv fname (E.FUNC_TYPE (cur_level, flabel, param_refs, return_ref)), tenv))
-    | Var_decl (vname, vtype, rhs) ->
+    | Var_decl (vname, vtype, escape, rhs) ->
         let var_access = T.alloc_local cur_level true in
         (S.add venv vname (E.VAR_TYPE (var_access, (D.NAME (vname, ref None)))), tenv))
 
@@ -292,7 +292,7 @@ and trans_decl cur_level break_to venv tenv exp_lst decl =
   | Type_decl (id, ty) -> trans_typedecl cur_level break_to venv tenv exp_lst id ty
   | Func_decl (fname, params, return, body) ->
                           trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body
-  | Var_decl (vname, vtype, rhs) ->
+  | Var_decl (vname, vtype, escape, rhs) ->
                           trans_vardecl cur_level break_to venv tenv exp_lst vname vtype rhs
 
 and trans_ty tenv id ty =  
@@ -306,7 +306,7 @@ and trans_ty tenv id ty =
       | Some t -> ARRAY (t, ref ())
       | None -> failwith (Printf.sprintf "%s is not defined\n" (S.name arr)))
   | Rec_ty fields ->
-      let ls = List.map fields ~f:(fun (id, type_id) -> 
+      let ls = List.map fields ~f:(fun (id, type_id, _) -> 
         match S.lookup tenv type_id with
         | Some t -> (id, t)
         | None   -> failwith (Printf.sprintf "%s is not defined\n" (S.name type_id)))
@@ -333,7 +333,7 @@ and trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body
 
   (* first verify that all incoming arguments are already defined, return id * type tuple list *)
   let param_idtys = List.map params
-    ~f:(fun (id, type_id) -> match S.lookup tenv type_id with
+    ~f:(fun (id, type_id, _) -> match S.lookup tenv type_id with
         | None -> failwith (Printf.sprintf "%s is undefined" (S.name type_id)) 
         | Some t -> (id, t))
   in 
