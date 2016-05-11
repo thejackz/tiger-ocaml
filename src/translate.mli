@@ -67,6 +67,8 @@ val trans_arrcreate : exp -> exp -> exp
 val trans_letexp : exp list -> exp -> exp
 
 (* level -> body -> unit *)
-val proc_entry_exit : level -> exp -> unit 
+val proc_entry_exit : is_procedure:bool -> level -> exp -> unit 
 
 val get_fragments : unit -> frag list
+
+val seq : Tree.stm list -> Tree.stm

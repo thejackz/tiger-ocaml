@@ -24,6 +24,8 @@ module type FRAME = sig
 
   val word_size : int
 
+  val input_reg_num : int
+
   val new_frame : Temp.label -> bool list -> frame
 
   val name : frame -> Temp.label
@@ -56,6 +58,7 @@ module MISP : FRAME = struct
 
   
   module T = Tree
+  
 
   let loc = ref 0
 
@@ -155,9 +158,9 @@ module MISP : FRAME = struct
 
   let is_callee_saved reg = 
     List.mem callee_saved reg
+
+  let input_reg_num = List.length arg_regs
                   
-
-
   (**
    *  this function takes an tree.exp and frame.access
    *  the tree.exp is the base address and the frame.access
@@ -183,25 +186,24 @@ module MISP : FRAME = struct
 
 
   let proc_entry_exit1 (frame : frame) body_stm =
+    let rec seq = function
+      | [a; b] -> T.SEQ (a, b)
+      | a :: b :: l -> T.SEQ (seq([a; b]), seq(l))
+      | [a] -> a
+      | [] -> T.EXP (T.CONST 450)
+    in
 
-    let view_shift index formals = 
-
+    let rec view_shift formals ~input_arg_counter = 
+      failwith ""
     in
 
     let formal_args = formals frame in
-
-    (* split formals based on whether it is in frame or reg *)
-    let in_regs, in_frames = List.partition_map formal_args 
-      ~f:(fun arg -> match arg with
-          | In_reg _ -> `Fst arg 
-          | In_frame _ -> `Snd arg)
-    in
 
     let formal_length = List.length formal_args in
     match formal_length <= 1 with
     | true -> body_stm
     | false ->
-        T.(SEQ (List.mapi view_shift formal_args |> T.seq, stm))
+        T.(SEQ (view_shift formal_args ~input_arg_counter:0 |> seq, body_stm))
 
 
 

@@ -328,8 +328,10 @@ and trans_typedecl cur_level break_to venv tenv exp_lst id ty =
 
 and trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body = 
 
-  (* All parameters escape*)
-  let calculate_escapes params : bool list = List.(init (length params) ~f:(fun x -> true)) in
+  (* walk through params and extra all escapse information *)
+  let calculate_escapes params = 
+    List.map params ~f:(fun (id, ty, escape) -> !escape)
+  in
 
   (* first verify that all incoming arguments are already defined, return id * type tuple list *)
   let param_idtys = List.map params
@@ -337,6 +339,7 @@ and trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body
         | None -> failwith (Printf.sprintf "%s is undefined" (S.name type_id)) 
         | Some t -> (id, t))
   in 
+
 
   (* add all id * type pairs to the current type environment *)
   let tenv_params = List.fold_left param_idtys ~init:tenv

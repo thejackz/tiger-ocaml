@@ -39,8 +39,28 @@ let outermost = {
 let compare_level l1 l2 = phys_equal l1 l2
 
 let new_level parent name formals = 
+
+  let rec modify_escape lst counter = 
+    match counter = 0 with
+    | true -> lst
+    | false ->
+        (match lst with
+        | [] -> failwith "should not happend"
+        | hd :: tl -> 
+            if not hd 
+            then true :: (modify_escape tl (counter - 1))
+            else hd :: (modify_escape tl counter))
+  in 
+   (*if the number of In_reg in bigger than then number of input reg of the target machine,*)
+   (*move the extra to frame*)
+  let move_extra_to_frame escapes : bool list = 
+    let num_in_reg = List.(length (filter escapes ~f:(fun x -> not x))) in 
+    if num_in_reg <= F.input_reg_num
+    then escapes
+    else modify_escape escapes (num_in_reg - F.input_reg_num)
+  in
   (*add one bool at the beginning of formals, this is the static links*)
-  let new_frame = F.new_frame name (true :: formals) in
+  let new_frame = F.new_frame name (true :: (move_extra_to_frame formals)) in
   { 
     parent = parent; 
     frame  = new_frame;
@@ -313,14 +333,17 @@ let trans_letexp init_exps body =
   Ex T.(ESEQ (seq inits, unEx body))
 
   
-let proc_entry_exit ~is_procedure level body = 
-  let fm = level.frame in
-  let body_ir = match is_procedure with
-    | true -> T.(SEQ (unNx body, MOVE (TEMP F.rv, CONST 0)))
-    | false -> T.(MOVE (TEMP F.rv, unEx body))
-  in 
-  let stmt = F.proc_entry_exit1 fm body in 
-  fragments := F.Proc (stmt, fm) :: !fragments
+let proc_entry_exit ~is_procedure (level:level) (body:exp) : unit = 
+  if is_procedure
+  then failwith ""
+  else failwith ""
+  (*let fm = level.frame in*)
+  (*let body_ir = match is_procedure with*)
+    (*| true -> T.(SEQ (unNx body, MOVE (TEMP F.rv, CONST 0)))*)
+    (*| false -> T.(MOVE (TEMP F.rv, unEx body))*)
+  (*in *)
+  (*let stmt = F.proc_entry_exit1 fm body in *)
+  (*fragments := F.Proc (stmt, fm) :: !fragments*)
 
 
 
