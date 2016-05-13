@@ -193,8 +193,15 @@ module MISP : FRAME = struct
       | [] -> T.EXP (T.CONST 450)
     in
 
-    let rec view_shift formals ~input_arg_counter = 
-      failwith ""
+    let rec view_shift formals ~counter = 
+      match formals with
+      | [] -> []
+      | hd :: tl ->
+          match hd with
+          | In_reg reg -> 
+              (MOVE (to_actual_reg ("a" ^ (string_of_int counter)), reg)) :: (view_shift tl ~counter:(counter + 1))
+          | In_frame offset ->
+              (MOVE (MEM (BINOP (PLUS, TEMP fp, CONST offset)), ))
     in
 
     let formal_args = formals frame in
@@ -203,7 +210,7 @@ module MISP : FRAME = struct
     match formal_length <= 1 with
     | true -> body_stm
     | false ->
-        T.(SEQ (view_shift formal_args ~input_arg_counter:0 |> seq, body_stm))
+        T.(SEQ (view_shift formal_args ~counter:0 |> seq, body_stm))
 
 
 
