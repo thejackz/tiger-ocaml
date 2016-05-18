@@ -137,26 +137,15 @@ module MispCodegen : CODEGEN = struct
 
 
 
-  and munch_args i args col = 
-    match args with
-    | [] -> List.rev col
-    | hd :: tl ->
-        match (i >= 0 and i <= 3) with
-        | true -> 
-            let reg = F.get_reg ("$a" ^ (string_of_int i)) in
-            (match hd with
-            | CONST const -> 
-                OPER ((P.sprintf "li $a%d, %d" i const),
-                       [reg], [], None)
-                |> emit;
-                munch_args (i + 1) tl (reg :: col)
-            | _ ->
-                OPER ((P.sprintf "move $a%d, `s0" i),
-                      [reg],
-                      [munch_exp e], None)
-                |> emit;
-                munch_args (i + 1) tl (reg :: col))
-        | false ->
+  and munch_args args = 
+    List.fold_left args
+    ~init:(0, 0)
+    ~f:(fun (rindex, findex) arg ->
+          match rindex <= 3 with
+          | true -> 
+              OPER (P.sprintf "")
+
+     )
             
 
 
