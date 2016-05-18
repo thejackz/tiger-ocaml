@@ -141,7 +141,7 @@ module MispCodegen : CODEGEN = struct
     match args with
     | [] -> List.rev col
     | hd :: tl ->
-        match (i >=0 and i <= 3) with
+        match (i >= 0 and i <= 3) with
         | true -> 
             let reg = F.get_reg ("$a" ^ (string_of_int i)) in
             (match hd with
