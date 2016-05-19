@@ -23,16 +23,16 @@ module MispCodegen : CODEGEN = struct
 
   let trans_binop ?im ?two_reg op = 
     match op, im, two_reg with
-    | PLUS, Some true, Some false -> "addi"
-    | MINUS, Some true, Some false -> "subi"
-    | PLUS, Some false, Some true -> "add"
-    | MINUS, Some false, Some true -> "sub"
+    | PLUS, Some true, _ -> "addi"
+    | MINUS, Some true, _ -> "subi"
+    | PLUS, _, Some true -> "add"
+    | MINUS, _, Some true -> "sub"
     | MUL, _, Some true -> "mul"
     | DIV, _, Some true -> "div"
-    | AND, Some true, Some false -> "addi"
+    | AND, Some true,  -> "andi"
     | AND, Some false, Some true -> "and"
-    | OR, Some true, Some false -> "ori"
-    | OR, Some false, Some true -> "or"
+    | OR, Some true, _ -> "ori"
+    | OR, _, Some true -> "or"
     | LSHIFT, _, _ -> "sll"
     | RSHIFT, _, _ -> "srl"
     | ARSHIFT, _, _ -> "srav"
@@ -45,69 +45,110 @@ module MispCodegen : CODEGEN = struct
     | MINUS, _, _ -> failwith "impossible"
 
 
+  let get_branch0_op op = 
+    match op with
+    | EQ -> Some "beqz"
+    | NE -> Some "bnez"
+    | LT -> Some "bltz"
+    | LE -> Some "blez"
+    | GT -> Some "bgtz"
+    | GE -> Some "bgez"
+    | _  -> None
+
+  let get_relop op =
+    match op with
+    | EQ  -> "beq"
+    | NE  -> "bne"
+    | LT  -> "blt"
+    | LE  -> "ble"
+    | GT  -> "bgt"
+    | GE  -> "bge"
+    | ULT -> "bltu"
+    | ULE -> "bleu"
+    | UGT -> "bgtu"
+    | UGE -> "bgeu"
+
+
   let rec munch_stm stm : unit = 
     match stm with
+
+    (* Sequence *)
     | SEQ (s1, s2) -> munch_stm s1; munch_stm s2
 
-     | EXP (CALL (NAME fname, args)) ->
-         let _, _ = List.fold_left args
-          ~init:(0, 1)
-          ~f:(fun (rindex, findex) arg ->
-                match rindex <= 3 with
-                | true -> 
-                    let str = string_of_int rindex in
-                    OPER ("move `d0, `s0", [F.get_reg ("a" ^ str)], [munch_exp arg], None)
-                    |> emit;
-                    (rindex + 1, findex)
-                | false ->
-                    let offset = findex * F.word_size in
-                    OPER (P.sprintf "sw `s0, %d(`d0)" offset, [F.fp], [munch_exp arg], None)
-                    |> emit;
-                    (rindex, findex + 1))
-          in
-          
-          let save_temps = List.map F.caller_saved ~f:(fun _ -> Temp.new_temp ()) in
-          let number_of_arg = List.length args in
-          let frame_var_num = (List.length args) - F.input_reg_num in 
-          let register_arg = match number_of_arg > F.input_reg_num with
-            | true -> List.take args F.input_reg_num
-            | false -> args
-          in
-          let frame_arg = match number_of_arg > F.input_reg_num with
-            | true -> List.drop args F.input_reg_num 
-            | false -> []
-          in
-
-          OPER (P.sprintf "jal %s" (Symbol.name fname), [], [], None) |> emit
-
+    (* Expression. Discard returned register *) 
     | EXP e -> munch_exp e; ()
 
+    (* Unconditional jump *)
+    | JUMP (NAME lab, _) -> OPER(P.sprintf "b lab", [], [], Some [lab]) |> emit
+    | JUMP (e, labs) -> OPER(P.sprintf "jr `r0", [], [munch_exp e], Some labs) |> emit
+
+    (* Branch condition *)
+    | CJUMP (relop, CONST 0, e, b1, b2) -> munch_stm (CJUMP (Tree.rev_relop relop, e, CONST 0, b1, b2))
+    | CJUMP (relop, e, CONST 0, b1, b2) ->
+        (match get_branch0_op relop with
+        | Some op -> OPER (op ^ " `s0, `j0",
+                           [], [munchexp e], Some [b1; b2])
+                     |> emit
+        | None -> OPER ((get_relop relop) ^ " `s0, `s1, `j0",
+                        [], [munch_exp e; F.zero], Some [b1; b2])
+                        |> emit)
+    | JUMP (relop, e1, e2, b1, b2) ->
+        OPER ((get_relop relop) ^ " `s0, `s1, `j0",
+              [], [munch_exp e1; munch_exp e2], Some [b1; b2])
+        |> emit
 
     (* data movement, store to memory.  sw *)
     | MOVE (MEM (BINOP (PLUS, e1, CONST i)), e2) 
     | MOVE (MEM (BINOP (PLUS, CONST i, e1)), e2) ->
         let lhs, rhs = munch_exp e1, munch_exp e2 in
         OPER ((P.sprintf "sw `s0, %d(`s1) " i), 
-               [lhs],
-               [rhs], None) 
+               [],
+               [lhs, rhs], None) 
         |> emit
     | MOVE (MEM (CONST i), e) ->
         OPER ((P.sprintf "sw `s0, %d($zero)" i),
               [],
               [munch_exp e], None)
       |> emit
+
+    (* General to-memory move *)
     | MOVE (MEM (e1), e2) ->
         OPER ((P.sprintf "sw `s0, 0(`s1)"),
-              [munch_exp e1],
-              [munch_exp e2], None)
+              [],
+              [munch_exp e1, munch_exp e2], None)
         |> emit
 
-
-    (* Write constant into register *)
+    (* Write into register *)
     | MOVE (TEMP t, CONST i) ->
-        OPER ((P.sprintf "li `rd, %d" i),
+        OPER ((P.sprintf "li `d0, %d" i),
               [t], [], None)
         |> emit
+    | MOVE (TEMP t, MEM (BINOP (PLUS, e, CONST i)))
+    | MOVE (TEMP t, MEM (BINOP (PLUS, CONST i, e)))->
+        OPER ((P.sprintf "lw `d0, %d(`s0)" i),
+              [t], [munch_exp e], None)
+        |> emit
+    | MOVE (TEMP t, MEM (BINOP (MINUS, e, CONST i))) ->
+        OPER ((P.sprintf "lw `d0, -%d(`s0)" i),
+              [t], [munch_exp e], None)
+        |> emit
+    | MOVE (TEMP t, NAME name) ->
+        OPER ((P.sprintf "la `d0, %s" (Symbol.name name)),
+                                [t], [], None)
+        |> emit
+    | MOVE (TEMP t, BINOP (op, CONST i, e)) 
+    | MOVE (TEMP t, BINOP (op, e, CONST i)) -> 
+        let op' = trans_binop ~im:true op in
+        OPER ((P.sprintf "%s `d0, `s0, %d" op i),
+              [t], [munch_exp e], None)
+        |> emit
+    | MOVE (TEMP t, BINOP (op, e1, e2)) ->
+        let op' = trans_binop ~two_reg:true op in
+        OPER ((P.sprintf "%s `d0, `s0, `s1"),
+              [t], [munch_exp e1; munch_exp e2], None)
+        |> emit
+
+    (* General to-register move *)
     | MOVE (TEMP t, e) ->
         OPER ((P.sprintf "move `t0, `t1"),
               [t],
@@ -115,11 +156,6 @@ module MispCodegen : CODEGEN = struct
       |> emit
 
     | LABEL lab -> LABEL (Symbol.name lab ^ ":\n", lab) |> emit
-
-    (* Unconditional jump *)
-    | JUMP (NAME lab, _) -> OPER(P.sprintf "b lab", [], [], None) |> emit
-    | JUMP (e, _) -> OPER(P.sprintf "jr `r0", [], [munch_exp e], None) |> emit
-
 
   and munch_exp exp : Temp.temp =
     let result gen = let t = Temp.new_temp () in gen t; t in
@@ -163,21 +199,69 @@ module MispCodegen : CODEGEN = struct
                                 [r], [], None)
                           |> emit)
 
+    | CALL (exp, args) ->
+
+          let src_regss = map2_exn args F.arg_regs ~f:(fun _ input_reg -> input_reg) in
+          
+          let number_of_arg = List.length args in
+          let frame_var_num = (List.length args) - F.input_reg_num in 
+          let register_arg = match number_of_arg > F.input_reg_num with
+            | true -> List.take args F.input_reg_num
+            | false -> args
+          in
+          let frame_arg = match number_of_arg > F.input_reg_num with
+            | true -> List.drop args F.input_reg_num 
+            | false -> []
+          in
+
+          (* First save all caller-saved register *)
+          let save_temps = List.map F.caller_saved ~f:(fun _ -> Temp.new_temp ()) in
+          let save_reg_instrs = List.map2_exn save_temps F.caller_saved
+            ~f:(fun temp reg -> MOVE (TEMP temp, TEMP reg))
+          in
+
+          (* save return address register *)
+          let ra_temp, rv_temp = Temp.new_temp (), Temp.new_temp () in
+          let save_ra_instr = MOVE (TEMP ra_temp, TEMP F.ra) in
+          let save_rv_instr = MOVE (TEMP rv_temp, TEMP F.rv) in
+          let prepare_call_instr = 
+            save_ra_instr :: save_rv_instr :: save_reg_instrs |> seq |> emit 
+          in 
+
+        (* Push input parameters into input registers or on stack *)
+        let _, _ = List.fold_left args
+          ~init:(0, 1)
+          ~f:(fun (rindex, findex) arg ->
+                match rindex <= 3 with
+                | true -> 
+                    let str = string_of_int rindex in
+                    let instr = match arg with 
+                      | CONST c -> 
+                          OPER (P.sprintf "li `d0, %d" c, [F.get_reg ("a" ^ str)], [], None)
+                      | _ -> 
+                          OPER ("move `d0, `s0", [F.get_reg ("a" ^ str)], [munch_exp arg], None)
+                    in emit instr;     
+                    (rindex + 1, findex)
+                | false ->
+                    let offset = findex * F.word_size in
+                    OPER (P.sprintf "sw `s0, %d(`d0)" offset, [F.fp], [munch_exp arg], None)
+                    |> emit;
+                    (rindex, findex + 1))
+          in
+          emit(codegen_call(exp, src_regs))
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  and codegen_call exp src_regs = 
+    match exp with
+    | NAME fname ->
+        OPER (P.sprintf "jal %s" (Symbol.name fname), 
+              F.rv :: F.caller_saved @ F.arg_regs, 
+              F.sp :: src_regs , 
+              None)
+    | _ ->
+        OPER ("jalr `s0", 
+              F.rv :: F.caller_saved @ F.arg_regs, 
+              munch_exp exp @ (F.sp :: src_regs) , 
+              None)
 
 end

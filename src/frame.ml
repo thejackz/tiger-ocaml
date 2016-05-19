@@ -201,7 +201,7 @@ module MISP : FRAME = struct
     | true  -> T.(CALL (NAME (named_label name), args))
 
 
-  let proc_entry_exit1 frame (body_stm : Tree.stm) =
+  let proc_entry_exit1 frame body =
     let rec seq = function
       | [a; b] -> T.SEQ (a, b)
       | a :: b :: l -> T.SEQ (T.SEQ (a, b), seq(l))
@@ -229,10 +229,14 @@ module MISP : FRAME = struct
     let temps = List.map saved_regs ~f:(fun _ -> Temp.new_temp ()) in
     let regs_save_intrs = List.map2_exn temps saved_regs ~f:(fun temp reg -> MOVE (TEMP temp, TEMP reg)) in 
     let regs_restore_intrs = List.map2_exn saved_regs temps ~f:(fun reg temp -> MOVE (TEMP reg, TEMP temp)) in 
-    let body' = [seq regs_save_intrs; body_stm; seq regs_restore_intrs] in
+    let body' = [seq regs_save_intrs; body; seq regs_restore_intrs] in
     match get_formals frame with
     | [] -> seq body'
     | _ as args -> T.SEQ (view_shift args ~reg_counter:0 ~frame_counter:0 |> seq, seq body') 
+
+  let proc_entry_exit2 frame body = 
+    body @ 
+      [Assem.OPER ("", [], [F.zero; F.rv; F.ra; F.sp] , Some [])]
 
 
 
