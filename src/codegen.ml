@@ -1,3 +1,5 @@
+open Core.Std 
+
 module type CODEGEN = sig
   module F : Frame.FRAME
 
@@ -47,10 +49,36 @@ module MispCodegen : CODEGEN = struct
     match stm with
     | SEQ (s1, s2) -> munch_stm s1; munch_stm s2
 
-     | EXP (CALL (NAME lab, args)) ->
-        OPER ((P.sprintf "jal %s" (Symbol.name lab)),
-              []
-          ) 
+     | EXP (CALL (NAME fname, args)) ->
+         let _, _ = List.fold_left args
+          ~init:(0, 1)
+          ~f:(fun (rindex, findex) arg ->
+                match rindex <= 3 with
+                | true -> 
+                    let str = string_of_int rindex in
+                    OPER ("move `d0, `s0", [F.get_reg ("a" ^ str)], [munch_exp arg], None)
+                    |> emit;
+                    (rindex + 1, findex)
+                | false ->
+                    let offset = findex * F.word_size in
+                    OPER (P.sprintf "sw `s0, %d(`d0)" offset, [F.fp], [munch_exp arg], None)
+                    |> emit;
+                    (rindex, findex + 1))
+          in
+          
+          let save_temps = List.map F.caller_saved ~f:(fun _ -> Temp.new_temp ()) in
+          let number_of_arg = List.length args in
+          let frame_var_num = (List.length args) - F.input_reg_num in 
+          let register_arg = match number_of_arg > F.input_reg_num with
+            | true -> List.take args F.input_reg_num
+            | false -> args
+          in
+          let frame_arg = match number_of_arg > F.input_reg_num with
+            | true -> List.drop args F.input_reg_num 
+            | false -> []
+          in
+
+          OPER (P.sprintf "jal %s" (Symbol.name fname), [], [], None) |> emit
 
     | EXP e -> munch_exp e; ()
 
@@ -137,16 +165,6 @@ module MispCodegen : CODEGEN = struct
 
 
 
-  and munch_args args = 
-    List.fold_left args
-    ~init:(0, 0)
-    ~f:(fun (rindex, findex) arg ->
-          match rindex <= 3 with
-          | true -> 
-              OPER (P.sprintf "")
-
-     )
-            
 
 
 

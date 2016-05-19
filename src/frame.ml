@@ -20,8 +20,6 @@ module type FRAME = sig
 
   type frag
 
-  type reg_table
-
   val word_size : int
 
   val input_reg_num : int
@@ -36,7 +34,11 @@ module type FRAME = sig
   
   val calc_texp : Tree.exp -> access -> Tree.exp
 
-  val fp : Temp.temp
+  val caller_saved : string list
+
+  val callee_saved : string list
+
+  val fp : Temp.temp 
 
   val rv : Temp.temp
 
@@ -50,7 +52,8 @@ module type FRAME = sig
 
   val external_call : string -> Tree.exp list -> Tree.exp
 
-  val get_reg: reg_table -> register -> Temp.temp
+  val get_reg : string -> Temp.temp
+
 
 end
 
@@ -74,9 +77,9 @@ module MISP : FRAME = struct
       type t = string with sexp, compare
     end)
 
-  type reg_table = Temp.temp Reg_map.t
+  let reg_table = Reg_map.empty
 
-  let get_reg table reg = failwith ""
+  let get_reg reg = failwith ""
 
   type access = 
     (* offset from the frame pointer *)
@@ -116,7 +119,7 @@ module MISP : FRAME = struct
   *)
   let new_frame name escapes  = 
 
-    let fs = List.fold_left escapes
+    let fs, _ = List.fold_left escapes
       ~init:([], 0)
       ~f:(fun (acc, index) escape -> match escape with
             | true -> (In_frame (index * word_size)) ::  acc, index - 1 
@@ -185,6 +188,8 @@ module MISP : FRAME = struct
 
   let fp = failwith "unimplemented"
 
+  let ra = failwith "unimplemented"
+
   let rv = failwith "unimplemented"
 
   let runtime_funcs = []
@@ -196,7 +201,7 @@ module MISP : FRAME = struct
     | true  -> T.(CALL (NAME (named_label name), args))
 
 
-  let proc_entry_exit1 (frame : frame) body_stm =
+  let proc_entry_exit1 frame (body_stm : Tree.stm) =
     let rec seq = function
       | [a; b] -> T.SEQ (a, b)
       | a :: b :: l -> T.SEQ (T.SEQ (a, b), seq(l))
@@ -205,27 +210,29 @@ module MISP : FRAME = struct
     in
 
     (* Move formal parameters to proper positions*)
-    let rec view_shift formals ~reg_counter ~frame_counter = 
-      List.(rev (fold_left formals
+    let view_shift (formals : access list) ~reg_counter ~frame_counter : Tree.stm list = 
+      let insts, _, _ = List.fold_left formals
         ~init:([], reg_counter, frame_counter)
-        ~f:(fun (acc, reg_counter, frame_counter) formal ->)
-          match hd with
+        ~f:(fun (acc, reg_counter, frame_counter) formal ->
+          match formal with
           | In_reg reg -> 
               let assembly = MOVE (TEMP (Temp.new_temp ()), get_reg ("a" ^ (string_of_int reg_counter))) in
               assembly :: acc, reg_counter + 1, frame_counter
           | In_frame offset ->
-              let assembly = MOVE (MEM (BINOP (PLUS, fp, offset)), BINOP (PLUS, fp, frame_counter * word_size)) in
-              assembly :: acc, reg_counter, frame_counter + 1))
+              let formal_offset = frame_counter * word_size in
+              let assembly = MOVE (MEM (BINOP (PLUS, fp, CONST offset)), BINOP (PLUS, fp, CONST formal_offset)) in
+              assembly :: acc, reg_counter, frame_counter + 1)
+      in insts
     in
     
-    let saved_regs = ra :: callee_saved in
+    let saved_regs = List.map ~f:(fun str -> get_reg str) (ra :: callee_saved) in
     let temps = List.map saved_regs ~f:(fun _ -> Temp.new_temp ()) in
     let regs_save_intrs = List.map2_exn temps saved_regs ~f:(fun temp reg -> MOVE (TEMP temp, TEMP reg)) in 
     let regs_restore_intrs = List.map2_exn saved_regs temps ~f:(fun reg temp -> MOVE (TEMP reg, TEMP temp)) in 
-    let body' = [regs_save_intrs, body_stm, regs_restore_intrs] in
-    match get_formals formals with
+    let body' = [seq regs_save_intrs; body_stm; seq regs_restore_intrs] in
+    match get_formals frame with
     | [] -> seq body'
-    | _ as args -> T.SEQ (view_shift args ~reg_counter:0 ~frame_counter:0 |> seq, body') 
+    | _ as args -> T.SEQ (view_shift args ~reg_counter:0 ~frame_counter:0 |> seq, seq body') 
 
 
 
