@@ -59,7 +59,7 @@ let new_level parent name formals =
     then escapes
     else modify_escape escapes (num_in_reg - F.input_reg_num)
   in
-  (*add one bool at the beginning of formals, this is the static links*)
+  (*add one bool at the beginning oF.get_formals, this is the static links*)
   let new_frame = F.new_frame name (true :: (move_extra_to_frame formals)) in
   { 
     parent = parent; 
@@ -71,13 +71,13 @@ let new_level parent name formals =
 
 (* Process the frame formals of the current level 
  * and attach level to each access of frame's access
- * Note that since the first element of formals is 
+ * Note that since the first element oF.get_formals is 
  * the static link, so that is discard*)
 let formals level : access list = 
   match level.parent with
   | None -> []
   | Some parent ->
-      let fm_formals = F.formals level.frame in
+      let fm_formals = F.get_formals level.frame in
       match List.map fm_formals ~f:(fun access -> level, access) with
       | [] -> failwith "formals should not be empty"
       | hd :: tl -> tl
@@ -132,7 +132,7 @@ let get_static_link level =
   match level.parent with
   | None -> failwith "top level has no static link"
   | Some _ ->
-      let formals = F.formals level.frame in
+      let formals = F.get_formals level.frame in
       match List.hd formals with
       | None -> failwith "no static link exist, this is a bug"
       | Some link -> link

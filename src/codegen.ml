@@ -29,7 +29,7 @@ module MispCodegen : CODEGEN = struct
     | MINUS, _, Some true -> "sub"
     | MUL, _, Some true -> "mul"
     | DIV, _, Some true -> "div"
-    | AND, Some true,  -> "andi"
+    | AND, Some true, _  -> "andi"
     | AND, Some false, Some true -> "and"
     | OR, Some true, _ -> "ori"
     | OR, _, Some true -> "or"
@@ -72,38 +72,43 @@ module MispCodegen : CODEGEN = struct
   let rec munch_stm stm : unit = 
     match stm with
 
+    (************************************************************)
     (* Sequence *)
     | SEQ (s1, s2) -> munch_stm s1; munch_stm s2
 
+    (************************************************************)
     (* Expression. Discard returned register *) 
-    | EXP e -> munch_exp e; ()
+    | EXP e -> ignore (munch_exp e); ()
 
+    (************************************************************)
     (* Unconditional jump *)
     | JUMP (NAME lab, _) -> OPER(P.sprintf "b lab", [], [], Some [lab]) |> emit
     | JUMP (e, labs) -> OPER(P.sprintf "jr `r0", [], [munch_exp e], Some labs) |> emit
 
+    (************************************************************)
     (* Branch condition *)
     | CJUMP (relop, CONST 0, e, b1, b2) -> munch_stm (CJUMP (Tree.rev_relop relop, e, CONST 0, b1, b2))
     | CJUMP (relop, e, CONST 0, b1, b2) ->
         (match get_branch0_op relop with
         | Some op -> OPER (op ^ " `s0, `j0",
-                           [], [munchexp e], Some [b1; b2])
+                           [], [munch_exp e], Some [b1; b2])
                      |> emit
         | None -> OPER ((get_relop relop) ^ " `s0, `s1, `j0",
                         [], [munch_exp e; F.zero], Some [b1; b2])
                         |> emit)
-    | JUMP (relop, e1, e2, b1, b2) ->
+    | CJUMP (relop, e1, e2, b1, b2) ->
         OPER ((get_relop relop) ^ " `s0, `s1, `j0",
               [], [munch_exp e1; munch_exp e2], Some [b1; b2])
         |> emit
 
+    (************************************************************)
     (* data movement, store to memory.  sw *)
     | MOVE (MEM (BINOP (PLUS, e1, CONST i)), e2) 
     | MOVE (MEM (BINOP (PLUS, CONST i, e1)), e2) ->
         let lhs, rhs = munch_exp e1, munch_exp e2 in
         OPER ((P.sprintf "sw `s0, %d(`s1) " i), 
                [],
-               [lhs, rhs], None) 
+               [lhs; rhs], None) 
         |> emit
     | MOVE (MEM (CONST i), e) ->
         OPER ((P.sprintf "sw `s0, %d($zero)" i),
@@ -113,12 +118,14 @@ module MispCodegen : CODEGEN = struct
 
     (* General to-memory move *)
     | MOVE (MEM (e1), e2) ->
-        OPER ((P.sprintf "sw `s0, 0(`s1)"),
+        OPER ("sw `s0, 0(`s1)",
               [],
-              [munch_exp e1, munch_exp e2], None)
+              [munch_exp e1; munch_exp e2], None)
         |> emit
 
-    (* Write into register *)
+
+    (************************************************************)
+    (* Write into register MOVE (TEMP t, ... ) *)
     | MOVE (TEMP t, CONST i) ->
         OPER ((P.sprintf "li `d0, %d" i),
               [t], [], None)
@@ -139,12 +146,12 @@ module MispCodegen : CODEGEN = struct
     | MOVE (TEMP t, BINOP (op, CONST i, e)) 
     | MOVE (TEMP t, BINOP (op, e, CONST i)) -> 
         let op' = trans_binop ~im:true op in
-        OPER ((P.sprintf "%s `d0, `s0, %d" op i),
+        OPER ((P.sprintf "%s `d0, `s0, %d" op' i),
               [t], [munch_exp e], None)
         |> emit
     | MOVE (TEMP t, BINOP (op, e1, e2)) ->
         let op' = trans_binop ~two_reg:true op in
-        OPER ((P.sprintf "%s `d0, `s0, `s1"),
+        OPER ((P.sprintf "%s `d0, `s0, `s1" op'),
               [t], [munch_exp e1; munch_exp e2], None)
         |> emit
 
@@ -155,8 +162,13 @@ module MispCodegen : CODEGEN = struct
               [munch_exp e], None)
       |> emit
 
+    | MOVE (_, _) -> failwith "MOVE error"
+
+    (************************************************************)
     | LABEL lab -> LABEL (Symbol.name lab ^ ":\n", lab) |> emit
 
+    (************************************************************)
+    
   and munch_exp exp : Temp.temp =
     let result gen = let t = Temp.new_temp () in gen t; t in
     match exp with
@@ -201,31 +213,22 @@ module MispCodegen : CODEGEN = struct
 
     | CALL (exp, args) ->
 
-          let src_regss = map2_exn args F.arg_regs ~f:(fun _ input_reg -> input_reg) in
+          let src_regs = List.map2_exn args F.arg_regs ~f:(fun _ input_reg -> input_reg) in
           
-          let number_of_arg = List.length args in
-          let frame_var_num = (List.length args) - F.input_reg_num in 
-          let register_arg = match number_of_arg > F.input_reg_num with
-            | true -> List.take args F.input_reg_num
-            | false -> args
-          in
-          let frame_arg = match number_of_arg > F.input_reg_num with
-            | true -> List.drop args F.input_reg_num 
-            | false -> []
-          in
-
           (* First save all caller-saved register *)
           let save_temps = List.map F.caller_saved ~f:(fun _ -> Temp.new_temp ()) in
           let save_reg_instrs = List.map2_exn save_temps F.caller_saved
-            ~f:(fun temp reg -> MOVE (TEMP temp, TEMP reg))
+            ~f:(fun temp reg_str -> MOVE (TEMP temp, TEMP (F.get_reg reg_str)))
           in
 
           (* save return address register *)
           let ra_temp, rv_temp = Temp.new_temp (), Temp.new_temp () in
           let save_ra_instr = MOVE (TEMP ra_temp, TEMP F.ra) in
           let save_rv_instr = MOVE (TEMP rv_temp, TEMP F.rv) in
-          let prepare_call_instr = 
-            save_ra_instr :: save_rv_instr :: save_reg_instrs |> seq |> emit 
+
+          (* Push caller-saved register and ra rv, ect *)
+          let _ = 
+            save_ra_instr :: save_rv_instr :: save_reg_instrs |> Translate.seq |> munch_stm 
           in 
 
         (* Push input parameters into input registers or on stack *)
@@ -248,20 +251,24 @@ module MispCodegen : CODEGEN = struct
                     |> emit;
                     (rindex, findex + 1))
           in
-          emit(codegen_call(exp, src_regs))
+          codegen_call exp src_regs |> emit;
+          F.rv
+    | ESEQ _ -> failwith "ESEQ should not appear in code generator"
 
 
   and codegen_call exp src_regs = 
     match exp with
     | NAME fname ->
+        let dst = List.map (F.caller_saved @ F.arg_regs) ~f:F.get_reg in
         OPER (P.sprintf "jal %s" (Symbol.name fname), 
-              F.rv :: F.caller_saved @ F.arg_regs, 
-              F.sp :: src_regs , 
+              F.rv :: dst,
+              F.sp :: (List.map src_regs ~f:F.get_reg), 
               None)
     | _ ->
+        let dst = List.map (F.caller_saved @ F.arg_regs) ~f:F.get_reg in
         OPER ("jalr `s0", 
-              F.rv :: F.caller_saved @ F.arg_regs, 
-              munch_exp exp @ (F.sp :: src_regs) , 
+              F.rv :: dst, 
+              munch_exp exp :: F.sp :: (List.map src_regs ~f:F.get_reg) , 
               None)
 
 end

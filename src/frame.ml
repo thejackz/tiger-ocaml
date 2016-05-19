@@ -38,9 +38,17 @@ module type FRAME = sig
 
   val callee_saved : string list
 
+  val arg_regs : string list
+
   val fp : Temp.temp 
 
   val rv : Temp.temp
+
+  val ra : Temp.temp
+
+  val sp : Temp.temp
+
+  val zero : Temp.temp
 
   val make_fragstring : Temp.label -> string -> frag
 
@@ -192,6 +200,10 @@ module MISP : FRAME = struct
 
   let rv = failwith "unimplemented"
 
+  let sp = failwith ""
+
+  let zero = failwith ""
+
   let runtime_funcs = []
 
 
@@ -236,7 +248,7 @@ module MISP : FRAME = struct
 
   let proc_entry_exit2 frame body = 
     body @ 
-      [Assem.OPER ("", [], [F.zero; F.rv; F.ra; F.sp] , Some [])]
+      [Assem.OPER ("", [], [zero; rv; ra; sp] , Some [])]
 
 
 
