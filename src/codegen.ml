@@ -19,7 +19,6 @@ module MispCodegen : CODEGEN = struct
 
   let emit instr = instr_list := instr :: !instr_list
 
-  let codegen frame stm = failwith ""
 
   let trans_binop ?im ?two_reg op = 
     match op, im, two_reg with
@@ -271,4 +270,7 @@ module MispCodegen : CODEGEN = struct
               munch_exp exp :: F.sp :: (List.map src_regs ~f:F.get_reg) , 
               None)
 
+  let codegen frame stm =
+    munch_stm stm;
+    List.rev !instr_list
 end

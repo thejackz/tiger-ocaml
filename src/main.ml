@@ -9,12 +9,12 @@ open Ast
 open Datatypes
 open Env
 open Symbol
-open Frame
 open Temp
 open Tree
 open Translate
 open Canonical
 open Assem
+open Frame
 (*open Codegen*)
 
 

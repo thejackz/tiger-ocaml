@@ -1,7 +1,7 @@
 
 
 (* abstract name for local variables *)
-type temp
+type temp = int
 
 val new_temp : unit -> temp
 
@@ -18,3 +18,5 @@ val label_to_string : label -> string
 
 (* Return a new label whose assembly language name is the given string *)
 val named_label : string -> label
+
+
