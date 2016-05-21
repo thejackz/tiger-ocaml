@@ -1,4 +1,6 @@
 open Symbol
+
+
 type temp = int
 
 type label = Symbol.symbol
@@ -24,6 +26,12 @@ let label_to_string l =
 let named_label s = 
   Symbol.symbol_of_string s
 
+
+
+module TempMap = Map.Make(struct
+  type t = temp
+  let compare = compare
+end)
 
 
 

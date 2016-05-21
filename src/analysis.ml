@@ -375,7 +375,7 @@ and trans_funcdecl cur_level break_to venv tenv exp_lst fname params return body
   | _ -> failwith "should not happend");
 
   (* Type check is done at this point, proc_entry_exit will generate assem for functions *)
-  T.proc_entry_exit new_level body_ir;
+  T.proc_entry_exit ~is_procedure:true new_level body_ir;
   (venv, tenv, exp_lst)
 
 and trans_vardecl cur_level break_to venv tenv exp_lst vname vtype rhs = 
@@ -401,5 +401,5 @@ and trans_vardecl cur_level break_to venv tenv exp_lst vname vtype rhs =
 
 let trans_prog ast = 
   let body, t = trans_exp T.outermost None E.base_venv E.base_tenv ast in
-  T.proc_entry_exit T.outermost body;
+  T.proc_entry_exit ~is_procedure:true T.outermost body;
   T.get_fragments ()

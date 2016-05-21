@@ -8,6 +8,7 @@ open Core.Std
 open Ast
 open Datatypes
 open Env
+open Analysis
 open Symbol
 open Temp
 open Tree
@@ -32,5 +33,11 @@ let parse s =
   let lexbuf = Lexing.from_string s in
   let ast = Parser.prog Lexer.read lexbuf in
   ast
+
+let type_check ast = 
+  Analysis.trans_prog ast
+
+
+let () = 
 
 

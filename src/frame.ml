@@ -70,7 +70,6 @@ module MISP : FRAME = struct
   
   module T = Tree
   
-
   let loc = ref 0
 
   let word_size = 4
@@ -78,16 +77,6 @@ module MISP : FRAME = struct
   type offset = int
 
   type register = string
-
-  
-  module Reg_map = Map.Make(
-    struct
-      type t = int with sexp, compare
-    end)
-
-  let reg_table = List.fold_left 
-                    ~init:Reg_map.empty
-                    ~f:(fun map reg_str -> Reg_map.add map reg_str Temp.new_temp)
 
   let get_reg reg = failwith ""
 
@@ -157,29 +146,6 @@ module MISP : FRAME = struct
   let label_registers label regs = 
     List.mapi regs ~f:(fun i reg -> reg, label ^ (Temp.temp_to_string reg))
 
-  (*let registers = [*)
-    (*"s0"; "s1"; "s2"; "s3"; "s4"; "s5"; "s6"; "s7";*)
-    (*"t0"; "t1"; "t2"; "t3"; "t4"; "t5"; "t6"; "t7"; "t8"; "t9";*)
-    (*"a0"; "a1"; "a2"; "a3"; "v0"; "v1";*)
-    (*"gp"; "fp"; "sp"; "ra"; "at"; "zero"; *)
-  
-  (*]*)
-
-  (*let sepecial_regs = [*)
-    (*"zeor"; "gp"; "sp"; "fp"; "ra"; "v0"; "v1"*)
-  (*]*)
-
-
-  (*let callee_saved = [*)
-    (*"s0"; "s1"; "s2"; "s3"; "s4"; "s5"; "s6"; "s7";*)
-  (*]*)
-
-  (*let caller_saved = [*)
-    (*"t0"; "t1"; "t2"; "t3"; "t4"; "t5"; "t6"; "t7"; "t8"; "t9";*)
-  (*]*)
-
-  (*let arg_regs = ["a0"; "a1"; "a2"; "a3"]*)
-
   let callee_saved = List.init 8 ~f:(fun i -> Temp.new_temp ())
 
   let caller_saved = List.init 10 ~f:(fun i -> Temp.new_temp ())
@@ -201,8 +167,8 @@ module MISP : FRAME = struct
       label_registers "$s" callee_saved @ 
       label_registers "$t" caller_saved @ 
       label_registers "$a" arg_regs)
-    ~init:Reg_map.empty
-    ~f:(fun table (temp, str) -> Reg_map.add table ~key:temp ~data:str)
+    ~init:Temp.TempMap.empty
+    ~f:(fun table (temp, str) -> Temp.TempMap.add temp str table)
 
   let is_caller_saved reg = 
     List.mem caller_saved reg 
