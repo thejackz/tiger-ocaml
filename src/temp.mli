@@ -20,4 +20,4 @@ val named_label : string -> label
 
 module TempMap : Map.S with type key = temp
 
-
+module TempSet : Set.S with type elt = temp

@@ -33,6 +33,10 @@ module TempMap = Map.Make(struct
   let compare = compare
 end)
 
+module TempSet = Set.Make(struct
+  type t = temp
+  let compare = compare
+end)
 
 
 
