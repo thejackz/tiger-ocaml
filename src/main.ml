@@ -14,6 +14,7 @@ open Temp
 open Tree
 open Translate
 open Canonical
+open Graph
 open Assem
 open Frame
 (*open Codegen*)
@@ -38,6 +39,5 @@ let type_check ast =
   Analysis.trans_prog ast
 
 
-let () = 
 
 
