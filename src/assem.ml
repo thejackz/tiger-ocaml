@@ -8,7 +8,7 @@ type instr =
 
   | LABEL of string * label
 
-  (*| MOVE of string * temp * temp*)
+  | MOVE of string * temp * temp
 
 (*let format_str : (temp -> string) -> instr -> string*)
 

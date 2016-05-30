@@ -36,7 +36,7 @@ let outermost = {
   cmp    = ref () ;
 }
 
-let compare_level l1 l2 = phys_equal l1 l2
+let compare_level l1 l2 = phys_equal l1.cmp l2.cmp
 
 let new_level parent name formals = 
 

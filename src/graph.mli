@@ -2,13 +2,13 @@ type graph
 
 type node
 
-val nodes: graph -> node list 
+val get_nodes: graph -> node list 
 
-val successor: node -> node list
+val successor: graph -> node -> node list
 
-val predecessor: node -> node list 
+val predecessor: graph -> node -> node list 
 
-val adjacent: node -> node list 
+val adjacent: graph -> node -> node list 
 
 val equal: node -> node -> bool
 

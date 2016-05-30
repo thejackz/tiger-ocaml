@@ -14,10 +14,10 @@ open Temp
 open Tree
 open Translate
 open Canonical
-open Graph
 open Assem
 open Frame
-(*open Codegen*)
+open Codegen
+(*open Graph*)
 
 
 let lexer s = 

@@ -156,9 +156,9 @@ module MispCodegen : CODEGEN = struct
 
     (* General to-register move *)
     | MOVE (TEMP t, e) ->
-        OPER ((P.sprintf "move `t0, `t1"),
-              [t],
-              [munch_exp e], None)
+        Assem.MOVE ((P.sprintf "move `t0, `t1"),
+              t,
+              munch_exp e)
       |> emit
 
     | MOVE (_, _) -> failwith "MOVE error"
@@ -217,13 +217,13 @@ module MispCodegen : CODEGEN = struct
           (* First save all caller-saved register *)
           let save_temps = List.map F.caller_saved ~f:(fun _ -> Temp.new_temp ()) in
           let save_reg_instrs = List.map2_exn save_temps F.caller_saved
-            ~f:(fun temp reg_str -> MOVE (TEMP temp, TEMP (F.get_reg reg_str)))
+            ~f:(fun temp reg -> Tree.MOVE (TEMP temp, TEMP reg))
           in
 
           (* save return address register *)
           let ra_temp, rv_temp = Temp.new_temp (), Temp.new_temp () in
-          let save_ra_instr = MOVE (TEMP ra_temp, TEMP F.ra) in
-          let save_rv_instr = MOVE (TEMP rv_temp, TEMP F.rv) in
+          let save_ra_instr = Tree.MOVE (TEMP ra_temp, TEMP F.ra) in
+          let save_rv_instr = Tree.MOVE (TEMP rv_temp, TEMP F.rv) in
 
           (* Push caller-saved register and ra rv, ect *)
           let _ = 
@@ -236,12 +236,12 @@ module MispCodegen : CODEGEN = struct
           ~f:(fun (rindex, findex) arg ->
                 match rindex <= 3 with
                 | true -> 
-                    let str = string_of_int rindex in
+                    let arg_reg = List.nth_exn F.arg_regs rindex in
                     let instr = match arg with 
                       | CONST c -> 
-                          OPER (P.sprintf "li `d0, %d" c, [F.get_reg ("a" ^ str)], [], None)
+                          OPER (P.sprintf "li `d0, %d" c, [arg_reg], [], None)
                       | _ -> 
-                          OPER ("move `d0, `s0", [F.get_reg ("a" ^ str)], [munch_exp arg], None)
+                          Assem.MOVE ("move `d0, `s0", arg_reg, munch_exp arg)
                     in emit instr;     
                     (rindex + 1, findex)
                 | false ->
@@ -258,16 +258,16 @@ module MispCodegen : CODEGEN = struct
   and codegen_call exp src_regs = 
     match exp with
     | NAME fname ->
-        let dst = List.map (F.caller_saved @ F.arg_regs) ~f:F.get_reg in
+        let dst = F.caller_saved @ F.arg_regs in
         OPER (P.sprintf "jal %s" (Symbol.name fname), 
               F.rv :: dst,
-              F.sp :: (List.map src_regs ~f:F.get_reg), 
+              F.sp :: src_regs, 
               None)
     | _ ->
-        let dst = List.map (F.caller_saved @ F.arg_regs) ~f:F.get_reg in
+        let dst = F.caller_saved @ F.arg_regs in
         OPER ("jalr `s0", 
               F.rv :: dst, 
-              munch_exp exp :: F.sp :: (List.map src_regs ~f:F.get_reg) , 
+              munch_exp exp :: F.sp :: src_regs, 
               None)
 
   let codegen frame stm =
