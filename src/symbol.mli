@@ -3,6 +3,7 @@ type symbol
 val symbol_of_string: string -> symbol
 val name: symbol -> string
 val make_dummy_sym: unit -> symbol
+val symbol_compare: symbol -> symbol -> int
 
 type 'a table
 val empty: 'a table

@@ -6,6 +6,8 @@ let sym_int = ref (-1)
 let next_sym_int () = 
   sym_int := !sym_int + 1; !sym_int
 
+let symbol_compare (_, s1) (_, s2) = compare s1 s2
+
 
 let symbol_to_int_table = Hashtbl.create ~hashable:String.hashable ()
 let table = symbol_to_int_table

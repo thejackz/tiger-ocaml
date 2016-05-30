@@ -2,31 +2,74 @@ open Core.Std
 open Assem
 
 (* https://www.cs.cmu.edu/~fp/courses/15411-f09/schedule.html *)
-type cfg = {
-  control:     Graph.graph;
-  define:      Temp.temp list Graph.Table.t; 
-  usage:       Temp.temp list Graph.Table.t;
-  is_move:     bool Graph.Table.t;
+
+type unique = unit ref
+
+type node = {
+  id:                 unique;
+  define:             Temp.TempSet.t;
+  usage:              Temp.TempSet.t;
+  mutable live_in:    Temp.TempSet.t;
+  mutable live_out:   Temp.TempSet.t;
+  mutable succ:       node list;
+  mutable prec:       node list;
+  is_move:            bool;
 }
 
+type cfg = node list
+
+
+let gen_nodes_n_labmap instrs = 
+  let module TempSet = Temp.TempSet in
+  let module LabelMap = Temp.LabelMap in
+  let last_index = (List.length instrs) - 1 in
+  let nodes, label_map, _ = List.fold_right instrs 
+    ~init:([], last_index, LabelMap.empty)
+    ~f:(fun instr (nodes, index, map) ->
+    match instr with
+    | LABEL (_, label) ->
+        let new_node = {
+          id = ref ();
+          define = TempSet.empty;
+          usage = TempSet.empty;
+          live_in = TempSet.empty;
+          live_out = TempSet.empty;
+          succ = [];
+          prec = [];
+          is_move = false;
+        } in 
+        (new_node :: nodes, index - 1, LabelMap.add label index map)
+    | MOVE (assem, dst, src) ->
+        let new_node = {
+          id = ref ();
+          define = TempSet.singleton dst;
+          usage = TempSet.singleton src;
+          live_in = TempSet.empty;
+          live_out = TempSet.empty;
+          succ = [];
+          prec = [];
+          is_move = true;
+        } in 
+        (new_node :: nodes, index - 1, map)
+    | OPER (assem, dst_lst, src_lst, next) -> 
+        let new_node = {
+          id = ref ();
+          define = TempSet.of_list dst_lst;
+          usage = TempSet.of_list src_lst;
+          live_in = TempSet.empty;
+          live_out = TempSet.empty;
+          succ = [];
+          prec = [];
+          is_move = false;
+        } in 
+        (new_node :: nodes, index - 1, map))
+  in (nodes, label_map)
 
 let uncover_liveness (instrs : Assem.instr list) = 
-  let module Varset = Temp.TempSet in
-  let rec helper instrs ~collector = 
-    match instrs with
-    | [] -> List.rev collector
-    | instr :: rest ->
-        let pre_liveset = List.hd_exn collector in 
-        match instr with
-        | OPER (assem, dst_lst, src_lst, next_label) ->
-        | MOVE (assem, dst, src) ->
-        | LABEL (assem, label) ->
-        
+  let nodes, label_map = gen_nodes_n_labmap instrs in
 
-  in 
-  let rev_instrs = List.rev instrs in
-  let hd, rest_instrs = List.hd_exn rev_instrs, List.tl_exn rev_instrs in 
-  helper rest_instrs ~collector:[Varset.empty]
+
+
 
 
         

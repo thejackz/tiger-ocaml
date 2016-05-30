@@ -38,6 +38,11 @@ module TempSet = Set.Make(struct
   let compare = compare
 end)
 
+module LabelMap = Map.Make(struct
+  type t = Symbol.symbol
+  let compare = Symbol.symbol_compare
+end)
+
 
 
 
