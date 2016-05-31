@@ -17,6 +17,7 @@ open Canonical
 open Assem
 open Frame
 open Codegen
+open Pprint
 (*open Graph*)
 
 

@@ -2,6 +2,9 @@
 open Printf
 open Lexing
 open Core.Std
+open Analysis
+
+
 
 let cur_dir = Sys.getcwd ()
 
@@ -27,14 +30,14 @@ let print_position lexbuf =
 
 
 let parse_with_error (lexbuf : Lexing.lexbuf) =
-  try
-    let _ = Parser.prog Lexer.read lexbuf in
-    Printf.printf "Program %s: parsing ok.\n" lexbuf.lex_curr_p.pos_fname
-  with
-    | Lexer.SyntaxError _  -> print_position lexbuf
-    | Parser.Error ->
-        print_position lexbuf;
-        exit (-1)
+  let ast = Parser.prog Lexer.read lexbuf in
+  let frags = Analysis.trans_prog ast in 
+  frags
+  (*with*)
+    (*| Lexer.SyntaxError _  -> print_position lexbuf*)
+    (*| Parser.Error ->*)
+        (*print_position lexbuf;*)
+        (*exit (-1)*)
 
 let sample = 
   "let
@@ -55,11 +58,11 @@ let parse filename =
   parse_with_error lexbuf
 
 
-let test_all () = 
-  List.iter all_files 
-    ~f:(fun filename -> parse filename)
+(*let test_all () = *)
+  (*List.iter all_files *)
+    (*~f:(fun filename -> parse filename)*)
 
 
-(*let () = parse_with_error (Lexing.from_string sample)*)
+let () = parse_with_error (Lexing.from_string sample)
 
-let () = test_all ()
+(*let () = test_all ()*)
