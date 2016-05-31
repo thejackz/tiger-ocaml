@@ -18,7 +18,9 @@ module type FRAME = sig
    *)
   type access 
 
-  type frag
+  type frag = 
+    | Proc   of Tree.stm * frame  (* body and frame *)
+    | String of Temp.label * string 
 
   val word_size : int
 
