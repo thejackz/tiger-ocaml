@@ -18,12 +18,19 @@ type node = {
   mutable succ:       node list;
   mutable prec:       node list;
   is_move:            bool;
-}
+} with sexp, compare
+
+module Node = Comparable.Make(struct
+  type t = node with sexp, compare
+end)
+
+module NodeSet = Node.Set
 
 type cfg = node list
 
-let reverse_graph cfg = List.rev cfg
-
+let reverse_graph cfg = 
+  List.iter cfg ~f:(fun node -> node.succ, node.prec <- node.prec, node.succ);
+  List.rev cfg
 
 let gen_nodes_n_labmap instrs = 
   let last_index = (List.length instrs) - 1 in
@@ -39,8 +46,8 @@ let gen_nodes_n_labmap instrs =
           usage = TempSet.empty;
           live_in = TempSet.empty;
           live_out = TempSet.empty;
-          succ = [];
-          prec = [];
+          succ = NodeSet.empty;
+          prec = NodeSet.empty;
           is_move = false;
         } in 
         (new_node :: nodes, LabelMap.add label index map, index - 1)
@@ -52,8 +59,8 @@ let gen_nodes_n_labmap instrs =
           usage = TempSet.singleton src;
           live_in = TempSet.empty;
           live_out = TempSet.singleton src;
-          succ = [];
-          prec = [];
+          succ = NodeSet.empty;
+          prec = NodeSet.empty;
           is_move = true;
         } in 
         (new_node :: nodes, map, index - 1)
@@ -65,8 +72,8 @@ let gen_nodes_n_labmap instrs =
           usage = TempSet.of_list src_lst;
           live_in = TempSet.empty;
           live_out = TempSet.of_list src_lst;
-          succ = [];
-          prec = [];
+          succ = NodeSet.empty;
+          prec = NodeSet.empty;
           is_move = false;
         } in 
         (new_node :: nodes, map, index - 1))
@@ -77,9 +84,13 @@ let rec nodes_to_graph label_map nodes =
     match node.stmt with
     | MOVE _ 
     | LABEL _ 
-    | OPER (_, _, _, None) -> node.succ <- [next_node]
+    | OPER (_, _, _, None) -> 
+        node.succ <- NodeSet.add node.succ next_node;
+        next_node.prec <- NodeSet.add next_node.prec next_node
     | OPER (assem, _, _, Some labs) ->
-        node.succ <- List.map labs ~f:(fun lab -> LabelMap.find label_map lab)
+        List.iter labs ~f:(fun lab -> let nx = LabelMap.find label_map lab in 
+          NodeSet.add node.succ nx;
+          NodeSet.add nx.prec node)
   in
   match nodes with
   | [] -> nodes
@@ -106,35 +117,38 @@ let is_jump node =
   | OPER (_, _, _, Some (l :: [])) -> true
   | _ -> false 
 
-let rec uncover_liveness cfg : cfg = 
 
-  let backward_pass rev_cfg = 
-    match rev_cfg with
-    | [] -> reverse_graph rev_cfg
-    | node :: (pre_node :: _ as rest) ->
 
-  let get_live_out node next_node = 
+let rec uncover_livenss cfg ~new_changes : cfg = 
+
+  let update_live_in node next_node = 
     
     (* what is live at the next node but is not live at the current node? *)
-    let diff = TempSet.diff next_node.live_out node.live_out in 
-
+    let diff = TempSet.diff next_node.live_in node.live_in in 
     match TempSet.is_empty node.define with
-    | true -> node.live_out <- TempSet.union node.live_out diff
+    | true -> node.live_in <- TempSet.union node.live_in diff
     | false -> TempSet.iter diff
         ~f:(fun var_at_next -> match TempSet.mem node.define var_at_next with
           | true -> ()
-          | false -> node.live_out <- TempSet.add node.live_out var_at_next)
+          | false -> node.live_in <- TempSet.add node.live_in var_at_next)
   in
   (* first pass, process node in order *)
   match cfg with
-  | [] -> cfg
+  | [] -> (match new_changes with
+      | true -> uncover_livenss ~new_changes:false 
+      | false -> cfg)
   | node :: (next_node :: _ as rest) ->
-      get_live_out node next_node;
-      uncover_liveness rest
+      update_live_in node next_node;
+      uncover_livenss rest
   | node :: [] ->
-      node.live_out <- TempSet.empty;
-      uncover_liveness []
+      node.live_in <- TempSet.empty;
+      uncover_livenss []
   
+
+
+
+
+
 
 
 
