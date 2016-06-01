@@ -1,9 +1,10 @@
 open Symbol
+open Core.Std
 
 
-type temp = int
+type temp = int with sexp, compare
 
-type label = Symbol.symbol
+type label = Symbol.symbol with sexp, compare
 
 let temp_count = ref 0
 let label_count = ref 0
@@ -28,20 +29,20 @@ let named_label s =
 
 
 
-module TempMap = Map.Make(struct
-  type t = temp
-  let compare = compare
-end)
+module Temp = struct
+  type t = temp with sexp, compare
+end
+module TempComp = Comparable.Make(Temp)
+module TempSet = TempComp.Set 
+module TempMap = TempComp.Map
 
-module TempSet = Set.Make(struct
-  type t = temp
-  let compare = compare
-end)
 
-module LabelMap = Map.Make(struct
-  type t = Symbol.symbol
-  let compare = Symbol.symbol_compare
-end)
+module Label = struct
+  type t = label with sexp, compare
+end
+module LabelComp = Comparable.Make(Label)
+module LabelMap = LabelComp.Map
+
 
 
 

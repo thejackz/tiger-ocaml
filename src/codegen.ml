@@ -139,7 +139,7 @@ module MispCodegen : CODEGEN = struct
               [t], [munch_exp e], None)
         |> emit
     | MOVE (TEMP t, NAME name) ->
-        OPER ((P.sprintf "la `d0, %s" (Symbol.name name)),
+        OPER ((P.sprintf "la `d0, %s" (Temp.label_to_string name)),
                                 [t], [], None)
         |> emit
     | MOVE (TEMP t, BINOP (op, CONST i, e)) 
@@ -164,7 +164,7 @@ module MispCodegen : CODEGEN = struct
     | MOVE (_, _) -> failwith "MOVE error"
 
     (************************************************************)
-    | LABEL lab -> LABEL (Symbol.name lab ^ ":\n", lab) |> emit
+    | LABEL lab -> LABEL (Temp.label_to_string lab ^ ":\n", lab) |> emit
 
     (************************************************************)
     
@@ -206,7 +206,7 @@ module MispCodegen : CODEGEN = struct
 
     | TEMP t -> t
     | NAME name ->
-        result (fun r -> OPER ((P.sprintf "la `d0, %s" (Symbol.name name)),
+        result (fun r -> OPER ((P.sprintf "la `d0, %s" (Temp.label_to_string name)),
                                 [r], [], None)
                           |> emit)
 
@@ -259,7 +259,7 @@ module MispCodegen : CODEGEN = struct
     match exp with
     | NAME fname ->
         let dst = F.caller_saved @ F.arg_regs in
-        OPER (P.sprintf "jal %s" (Symbol.name fname), 
+        OPER (P.sprintf "jal %s" (Temp.label_to_string fname), 
               F.rv :: dst,
               F.sp :: src_regs, 
               None)

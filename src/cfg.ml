@@ -2,6 +2,8 @@ open Core.Std
 open Assem
 
 (* https://www.cs.cmu.edu/~fp/courses/15411-f09/schedule.html *)
+module TempSet = Temp.TempSet 
+module LabelMap = Temp.LabelMap
 
 type unique = unit ref
 
@@ -24,8 +26,6 @@ let reverse_graph cfg = List.rev cfg
 
 
 let gen_nodes_n_labmap instrs = 
-  let module TempSet = Temp.TempSet in
-  let module LabelMap = Temp.LabelMap in
   let last_index = (List.length instrs) - 1 in
   let nodes, label_map, _ = List.fold_right instrs 
     ~init:([], LabelMap.empty, last_index)
@@ -34,11 +34,11 @@ let gen_nodes_n_labmap instrs =
     | LABEL (assem, label) ->
         let new_node = {
           id = index;
-          stmt = assem;
+          stmt = instr;
           define = TempSet.empty;
           usage = TempSet.empty;
           live_in = TempSet.empty;
-          live_out = usage;
+          live_out = TempSet.empty;
           succ = [];
           prec = [];
           is_move = false;
@@ -47,11 +47,11 @@ let gen_nodes_n_labmap instrs =
     | MOVE (assem, dst, src) ->
         let new_node = {
           id = index;
-          stmt = assem;
+          stmt = instr;
           define = TempSet.singleton dst;
           usage = TempSet.singleton src;
           live_in = TempSet.empty;
-          live_out = usage;
+          live_out = TempSet.singleton src;
           succ = [];
           prec = [];
           is_move = true;
@@ -60,11 +60,11 @@ let gen_nodes_n_labmap instrs =
     | OPER (assem, dst_lst, src_lst, next) -> 
         let new_node = {
           id = index;
-          stmt = assem;
+          stmt = instr;
           define = TempSet.of_list dst_lst;
           usage = TempSet.of_list src_lst;
           live_in = TempSet.empty;
-          live_out = usage;
+          live_out = TempSet.of_list src_lst;
           succ = [];
           prec = [];
           is_move = false;
@@ -116,14 +116,14 @@ let rec uncover_liveness cfg : cfg =
   let get_live_out node next_node = 
     
     (* what is live at the next node but is not live at the current node? *)
-    let diff = NodeSet.diff next_node.live_out node.live_out in 
+    let diff = TempSet.diff next_node.live_out node.live_out in 
 
-    match NodeSet.is_empty node.define with
-    | true -> node.live_out <- NodeSet.union node.live_out diff
-    | false -> NodeSet.iter diff
-        ~f:(fun var_at_next -> match NodeSet.mem node.define var_at_next with
+    match TempSet.is_empty node.define with
+    | true -> node.live_out <- TempSet.union node.live_out diff
+    | false -> TempSet.iter diff
+        ~f:(fun var_at_next -> match TempSet.mem node.define var_at_next with
           | true -> ()
-          | false -> node.live_out <- NodeSet.add node.live_out var_at_next)
+          | false -> node.live_out <- TempSet.add node.live_out var_at_next)
   in
   (* first pass, process node in order *)
   match cfg with
@@ -132,7 +132,7 @@ let rec uncover_liveness cfg : cfg =
       get_live_out node next_node;
       uncover_liveness rest
   | node :: [] ->
-      node.live_out <- [];
+      node.live_out <- TempSet.empty;
       uncover_liveness []
   
 

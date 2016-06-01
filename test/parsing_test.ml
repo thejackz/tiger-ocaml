@@ -3,6 +3,7 @@ open Printf
 open Lexing
 open Core.Std
 open Analysis
+open Frame.MISP
 
 
 
@@ -32,7 +33,10 @@ let print_position lexbuf =
 let parse_with_error (lexbuf : Lexing.lexbuf) =
   let ast = Parser.prog Lexer.read lexbuf in
   let frags = Analysis.trans_prog ast in 
-  frags
+  let procs, strs = List.partition_tf frags
+    ~f:(fun frag -> match frag with
+        | Proc _ -> true
+        | _ -> false ) in
   (*with*)
     (*| Lexer.SyntaxError _  -> print_position lexbuf*)
     (*| Parser.Error ->*)

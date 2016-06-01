@@ -1,3 +1,4 @@
+open Core.Std
 
 (* abstract name for local variables *)
 type temp
@@ -9,7 +10,8 @@ val temp_to_string : temp -> string
 
 
 (*name for the static memory addresses *)
-type label = Symbol.symbol
+
+type label
 
 val new_label : unit -> label
 
@@ -18,8 +20,8 @@ val label_to_string : label -> string
 (* Return a new label whose assembly language name is the given string *)
 val named_label : string -> label
 
-module TempMap : Map.S with type key = temp
+module TempMap : Map.S with type t = temp
 
-module TempSet : Set.S with type elt = temp
+module LabelMap : Comparable.S
 
-module LabelMap : Map.S with type key = label
+module TempSet : Comparable.S
