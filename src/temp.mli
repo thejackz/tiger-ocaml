@@ -20,8 +20,8 @@ val label_to_string : label -> string
 (* Return a new label whose assembly language name is the given string *)
 val named_label : string -> label
 
-module TempMap : Map.S with type t = temp
+module TempMap : Map.S with type Key.t = temp
 
-module LabelMap : Comparable.S
+module LabelMap : Map.S with type Key.t = label
 
-module TempSet : Comparable.S
+module TempSet : Set.S with type Elt.t = temp 

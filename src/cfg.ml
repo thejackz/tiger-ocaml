@@ -18,19 +18,18 @@ type node = {
   mutable succ:       node list;
   mutable prec:       node list;
   is_move:            bool;
-} with sexp, compare
-
-module Node = Comparable.Make(struct
-  type t = node with sexp, compare
-end)
-
-module NodeSet = Node.Set
+}
 
 type cfg = node list
 
-let reverse_graph cfg = 
-  List.iter cfg ~f:(fun node -> node.succ, node.prec <- node.prec, node.succ);
-  List.rev cfg
+let reverse_graph cfg = List.rev cfg
+
+
+let node_set_add nodes node = 
+  match List.mem ~equal:(fun n1 n2 -> n1.id = n2.id) nodes node with
+  | true -> nodes
+  | false -> node :: nodes
+
 
 let gen_nodes_n_labmap instrs = 
   let last_index = (List.length instrs) - 1 in
@@ -46,11 +45,11 @@ let gen_nodes_n_labmap instrs =
           usage = TempSet.empty;
           live_in = TempSet.empty;
           live_out = TempSet.empty;
-          succ = NodeSet.empty;
-          prec = NodeSet.empty;
+          succ = [];
+          prec = [];
           is_move = false;
         } in 
-        (new_node :: nodes, LabelMap.add label index map, index - 1)
+        (new_node :: nodes, LabelMap.add ~key:label ~data:new_node map, index - 1)
     | MOVE (assem, dst, src) ->
         let new_node = {
           id = index;
@@ -59,8 +58,8 @@ let gen_nodes_n_labmap instrs =
           usage = TempSet.singleton src;
           live_in = TempSet.empty;
           live_out = TempSet.singleton src;
-          succ = NodeSet.empty;
-          prec = NodeSet.empty;
+          succ = [];
+          prec = [];
           is_move = true;
         } in 
         (new_node :: nodes, map, index - 1)
@@ -72,8 +71,8 @@ let gen_nodes_n_labmap instrs =
           usage = TempSet.of_list src_lst;
           live_in = TempSet.empty;
           live_out = TempSet.of_list src_lst;
-          succ = NodeSet.empty;
-          prec = NodeSet.empty;
+          succ = [];
+          prec = [];
           is_move = false;
         } in 
         (new_node :: nodes, map, index - 1))
@@ -84,22 +83,24 @@ let rec nodes_to_graph label_map nodes =
     match node.stmt with
     | MOVE _ 
     | LABEL _ 
-    | OPER (_, _, _, None) -> 
-        node.succ <- NodeSet.add node.succ next_node;
-        next_node.prec <- NodeSet.add next_node.prec next_node
+    | OPER (_, _, _, None) -> (match next_node with
+        | Some n -> 
+            node.succ <- node_set_add node.succ n;
+            n.prec <- node_set_add node.prec node
+        | None -> ())
     | OPER (assem, _, _, Some labs) ->
-        List.iter labs ~f:(fun lab -> let nx = LabelMap.find label_map lab in 
-          NodeSet.add node.succ nx;
-          NodeSet.add nx.prec node)
+        List.iter labs ~f:(fun lab -> let nx = LabelMap.find_exn label_map lab in
+          node.succ <- node_set_add node.succ nx;
+          nx.prec <- node_set_add nx.prec node)
   in
   match nodes with
   | [] -> nodes
   | node :: (next_node :: _ as rest) ->
-      update_node node next_node;
-      nodes_to_graph labelmap rest
+      update_node node (Some next_node);
+      nodes_to_graph label_map rest
   | node :: [] -> 
-      update_node node [];
-      nodes_to_graph labelmap []
+      update_node node None;
+      nodes_to_graph label_map []
 
 let make_cfg (instrs : Assem.instr list) : cfg = 
   (* Convert each instruction to node, and record the position of each label *)
@@ -117,46 +118,38 @@ let is_jump node =
   | OPER (_, _, _, Some (l :: [])) -> true
   | _ -> false 
 
+let rec uncover_liveness cfg = 
 
+  (* process node, if it is updated, return true, else false *)
+  let get_live_in node = 
 
-let rec uncover_livenss cfg ~new_changes : cfg = 
+    (* get all live-in vars of current node's successor *)
+    let livein_next_nodes =  
+      List.map node.succ ~f:(fun node -> TempSet.to_list node.live_in)
+      |> List.concat |> TempSet.of_list
+    in
 
-  let update_live_in node next_node = 
-    
-    (* what is live at the next node but is not live at the current node? *)
-    let diff = TempSet.diff next_node.live_in node.live_in in 
+    (* all vars that are live in the next nodes but are not live in at the current node *)
+    let diff = TempSet.diff node.live_in livein_next_nodes in 
+
+    (* any var that is defined at the current node ? *)
     match TempSet.is_empty node.define with
-    | true -> node.live_in <- TempSet.union node.live_in diff
-    | false -> TempSet.iter diff
+    | true -> 
+        let new_node_live_in = TempSet.union node.live_in diff in
+        (match TempSet.diff new_node_live_in node.live_in |> TempSet.is_empty with
+        (* no change for node.live, return false, meaning that there is no new update *)
+        | true -> false
+        (* change detected, update live-in and return true. Another iteration is needed for liveness *)
+        | false -> node.live_in <- new_node_live_in; true)
+      
+    | false -> TempSet.for_all diff
         ~f:(fun var_at_next -> match TempSet.mem node.define var_at_next with
-          | true -> ()
-          | false -> node.live_in <- TempSet.add node.live_in var_at_next)
+          | true -> false
+          | false -> node.live_in <- TempSet.add node.live_in var_at_next; true)
   in
-  (* first pass, process node in order *)
-  match cfg with
-  | [] -> (match new_changes with
-      | true -> uncover_livenss ~new_changes:false 
-      | false -> cfg)
-  | node :: (next_node :: _ as rest) ->
-      update_live_in node next_node;
-      uncover_livenss rest
-  | node :: [] ->
-      node.live_in <- TempSet.empty;
-      uncover_livenss []
-  
-
-
-
-
-
-
-
-
-
-
-
-        
-
-
-
+  let change_lst = List.map cfg ~f:(fun node -> get_live_in node) in
+  (* is there any new update? *)
+  match List.mem change_lst true with
+  | true -> uncover_liveness cfg
+  | false -> cfg
   

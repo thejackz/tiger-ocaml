@@ -170,7 +170,7 @@ module MISP : FRAME = struct
       label_registers "$t" caller_saved @ 
       label_registers "$a" arg_regs)
     ~init:Temp.TempMap.empty
-    ~f:(fun table (temp, str) -> Temp.TempMap.add temp str table)
+    ~f:(fun table (temp, str) -> Temp.TempMap.add table ~key:temp ~data:str)
 
   let is_caller_saved reg = 
     List.mem caller_saved reg 

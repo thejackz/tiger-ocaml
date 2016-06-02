@@ -2,6 +2,7 @@ open Core.Std
 open Tree
 
 module T = Tree
+module LabelMap = Temp.LabelMap
 
 let fail () = failwith "impossible"
 
@@ -145,7 +146,7 @@ let basic_blocks stms =
 
 let enter_block block table = 
   match block with
-  | LABEL sym :: _ -> Symbol.add table sym block
+  | LABEL sym :: _ -> LabelMap.add table ~key:sym ~data:block
   | _ -> table
 
 let rec split_last = function
@@ -156,7 +157,7 @@ let rec split_last = function
   | [] -> failwith "impossible, basic block should not be empty block"
 
 let get_successor table lab = 
-  match Symbol.lookup table lab with
+  match LabelMap.find table lab with
   | Some ((_ :: _) as sucessor) -> Some sucessor 
   | _ -> None
 
@@ -165,7 +166,7 @@ let rec trace table block rest_blocks =
   | LABEL sym :: _ ->
       
       (* update the table, this marks that lab has been processed *)
-      let new_table = Symbol.add table sym [] in
+      let new_table = LabelMap.add table sym [] in
 
       (match split_last block with
 
@@ -194,7 +195,7 @@ let rec trace table block rest_blocks =
 and gen_next table blocks = 
   match blocks with
   | (LABEL l :: _) as block :: rest ->
-      (match Symbol.lookup table l with
+      (match LabelMap.find table l with
       | Some (_ :: _) -> trace table block rest   
       | _ -> gen_next table rest)
   | [] -> []
@@ -202,4 +203,4 @@ and gen_next table blocks =
 
 
 let trace_schedule (blocks : Tree.stm list list) done_lab = 
-  (gen_next (List.fold_right blocks ~init:Symbol.empty ~f:enter_block) blocks) @ [LABEL done_lab]
+  (gen_next (List.fold_right blocks ~init:LabelMap.empty ~f:enter_block) blocks) @ [LABEL done_lab]
